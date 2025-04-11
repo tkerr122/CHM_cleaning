@@ -388,15 +388,13 @@ def mask_slope(chm_array, ndvi_array, height_threshold, slope_8bit=None):
     """
     ndvi_mask = (ndvi_array == 255)
     if slope_8bit is not None:
-        # slope_mask = (slope_8bit == 1)
-        # ground_mask = (slope_8bit == 0)
+        slope_mask = (slope_8bit == 1)
+        ground_mask = (slope_8bit == 0)
         
         # Set areas designated as ground to 0
-        # chm_array = np.where(ground_mask, 0, chm_array)
-        # threshold_mask = (chm_array > height_threshold) & ndvi_mask & slope_mask
-        chm_array = np.where(slope_8bit == 0, 0, chm_array)
-        threshold_mask = (chm_array > slope_8bit) & ndvi_mask
-        
+        chm_array = np.where(ground_mask, 0, chm_array)
+        threshold_mask = (chm_array > height_threshold) & ndvi_mask & slope_mask
+       
     else:
         threshold_mask = (chm_array > height_threshold) & ndvi_mask
     chm_cleaned = np.where(threshold_mask, 0, chm_array)
