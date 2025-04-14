@@ -365,7 +365,7 @@ def calc_ndvi_by_block(input_image, output_folder, threshold_value=None, mask=Tr
             cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
             calc_ndvi(nir, red, output_band, x, y, cols, rows, threshold_value, mask)
             progress_bar.update(1)
-    
+     
     progress_bar.close()
     output_band = None
     output = None
@@ -388,12 +388,11 @@ def mask_slope(chm_array, ndvi_array, height_threshold, slope_8bit=None):
     """
     ndvi_mask = (ndvi_array == 255)
     if slope_8bit is not None:
-        slope_mask = (slope_8bit == 1)
         ground_mask = (slope_8bit == 0)
         
         # Set areas designated as ground to 0
         chm_array = np.where(ground_mask, 0, chm_array)
-        threshold_mask = (chm_array > height_threshold) & ndvi_mask & slope_mask
+        threshold_mask = (chm_array > slope_8bit) & ndvi_mask
        
     else:
         threshold_mask = (chm_array > height_threshold) & ndvi_mask
