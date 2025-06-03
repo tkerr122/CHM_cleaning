@@ -1,5 +1,8 @@
 from All_clean_CHM import *
 
+#TODO: figure out how to fill gaps between edges of bounding box (rasters in between both extremes)
+
+
 def get_chm_loc2(chm):
     """Takes given raster dataset and finds which lat lon tiles it intersects with, returns a list of the tiles.
 
@@ -26,35 +29,38 @@ def get_chm_loc2(chm):
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(4326)
     transform = osr.CoordinateTransformation(src_srs, dst_srs)
-    lat1, lon1, _ = transform.TransformPoint(x_left, y_top)
-    lat2, lon2, _ = transform.TransformPoint(x_left, y_bottom)
-    lat3, lon3, _ = transform.TransformPoint(x_right, y_bottom)
-    lat4, lon4, _ = transform.TransformPoint(x_right, y_top)
-       
+    lat_min, lon_min, _ = transform.TransformPoint(x_left, y_bottom)
+    lat_max, lon_max, _ = transform.TransformPoint(x_right, y_top)
+    
     # Extract tile names
-    def get_tile_name(lat, lon):
-        lat_dir = "N" if lat > 0 else "S"
-        lon_dir = "E" if lon > 0 else "W"
+    def get_tile_name(lat_min, lat_max, lon_min, lon_max):
+        tile_names = []
         
-        latitude = math.floor(lat / 3) * 3
-        longitude = math.floor(lon / 3) * 3
+        lat_start = math.floor(lat_min / 3) * 3
+        lat_end = math.floor(lat_max / 3) * 3
         
-        lat_str = f"{lat_dir}{abs(latitude):02d}"
-        lon_str = f"{lon_dir}{abs(longitude):03d}"
-            
-        return f"ESA_WorldCover_10m_2021_v200_{lat_str}{lon_str}_Map.tif"
-    
-    # Get tile names
-    tile1 = get_tile_name(lat1, lon1)
-    tile2 = get_tile_name(lat2, lon2)
-    tile3 = get_tile_name(lat3, lon3)
-    tile4 = get_tile_name(lat4, lon4)
-    
-    tiles = sorted(set([tile1, tile2, tile3, tile4]))
+        lon_start = math.floor(lon_min / 3) * 3
+        lon_end = math.floor(lon_max / 3) * 3
+        
+        for lat in range(lat_start, lat_end + 1, 3):
+            for lon in range(lon_start, lon_end + 1, 3):
+                lat_dir = "N" if lat > 0 else "S"
+                lon_dir = "E" if lon > 0 else "W"
+        
+                lat_str = f"{lat_dir}{abs(lat):02d}"
+                lon_str = f"{lon_dir}{abs(lon):03d}"
+                
+                tile_name = f"ESA_WorldCover_10m_2021_v200_{lat_str}{lon_str}_Map.tif"
+                tile_names.append(tile_name)
+        
+        return tile_names
+        
+    tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
+    tiles = sorted(set(tiles))
         
     return tiles
 
-chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/CHM_testing/MT_Highline/MT_Highline_CHM_cleaned.tif")
+chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/CHM_testing/WY_GrandTeton/WY_GrandTeton_CHM_cleaned.tif")
 
 worldcover = get_chm_loc2(chm)
 print(f"\n{worldcover}")
