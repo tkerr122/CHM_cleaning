@@ -36,7 +36,7 @@ parser.add_argument("-st", "--save-temp", action="store_true", help="Save temp d
 parser.add_argument("-sm", "--slope-mask", action="store_true", help="Filter out slope")
 parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual powerlines")
 parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
-parser.add_argument("-ht", "--height-threshold", type=int, default=120, help="Height threshold")
+parser.add_argument("-ht", "--height-threshold", type=int, help="Height threshold")
 parser.add_argument("-nt", "--ndvi-threshold", type=int, default=120, help="NDVI threshold")
 parser.add_argument("-wmv", "--water-mask-values", type=list, default=[2, 3, 4, 5, 6, 7, 8, 11], help="Water mask values")
 
@@ -66,7 +66,7 @@ crs = "EPSG:3857"
 pixel_size = 4.77731426716
 
 if slope_mask == True:
-    output_tiff = os.path.join(output_folder, f"ndvi{ndvi_threshold}_{survey}_CHM_cleaned.tif")
+    output_tiff = os.path.join(output_folder, f"ndvi{ndvi_threshold}_height{height_threshold}_{survey}_CHM_cleaned.tif")
 else:
     output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned.tif"
 

@@ -1,10 +1,10 @@
-# Theo Kerr on 3/28/2025
+# Theo Kerr
 # For use on linux cluster "gdalenv" conda env
 
 # Imports/env settings 
 import numpy as np
 import geopandas as gpd
-import os, shutil
+import os, shutil, math
 from osgeo import gdal, osr, ogr
 from tqdm import tqdm
 gdal.UseExceptions()
@@ -166,7 +166,8 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
     return dst_ds
 
 def rasterize(input_file, output_tiff, pixel_size, burn_value=None):
-    """Uses the GDAL Rasterize Layer function to rasterize the given vector layer to the output tiff path, with the given pixel size and burn value.
+    """Uses the GDAL Rasterize Layer function to rasterize the given vector layer to the output tiff path, with the given pixel size. If a burn value is not specified, 
+	the polygon value attribute is used.
 
     Args:
         input_file (str): path to vector dataset.
@@ -375,13 +376,13 @@ def calc_ndvi_by_block(input_image, output_folder, threshold_value=None, mask=Tr
 
 def mask_slope(chm_array, ndvi_array, height_threshold, slope_8bit=None):
     """Takes in an array for the CHM and the NDVI mask (must be same dimensions) and sets CHM values to 0 where the CHM height is above the given threshold, masking with NDVI mask.
-    If slope_mask array is provided, will only mask the portions of the CHM that overlap the slope_mask array.
+    If slope_mask array is provided, will only mask the portions of the CHM that overlap the slope_mask array, using those values as the height threshold.
 
     Args:
         chm_array (np.array): array for the CHM.
         ndvi_array (np.array): array for the NDVI.
         height_threshold (int): 8-bit scaled height threshold value.
-        slope_mask (np.array, optional): array of manual slope errors. Defaults to None.
+        slope_8bit (np.array, optional): array of manual slope errors. Defaults to None.
 
     Returns:
         np.array: cleaned CHM array.
