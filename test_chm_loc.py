@@ -30,14 +30,14 @@ def get_chm_loc2(chm):
     lat2, lon2, _ = transform.TransformPoint(x_left, y_bottom)
     lat3, lon3, _ = transform.TransformPoint(x_right, y_bottom)
     lat4, lon4, _ = transform.TransformPoint(x_right, y_top)
-    
+       
     # Extract tile names
     def get_tile_name(lat, lon):
         lat_dir = "N" if lat > 0 else "S"
         lon_dir = "E" if lon > 0 else "W"
         
-        latitude = (int(lat) // 3) * 3
-        longitude = (int(abs(lon)) // 3) * 3
+        latitude = math.floor(lat / 3) * 3
+        longitude = math.floor(lon / 3) * 3
         
         lat_str = f"{lat_dir}{abs(latitude):02d}"
         lon_str = f"{lon_dir}{abs(longitude):03d}"
@@ -57,4 +57,19 @@ def get_chm_loc2(chm):
 chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/CHM_testing/MT_Highline/MT_Highline_CHM_cleaned.tif")
 
 worldcover = get_chm_loc2(chm)
-print(f"\nworldcover:\n{worldcover}")
+print(f"\n{worldcover}")
+
+'''
+Read in ESA_WorldCover_10m_2021_v200_N48W111_Map.tif...
+X left: -111.0
+X right: -108.0
+Y top: 51.0
+Y bottom: 48.0
+
+Read in MT_Highline_CHM_cleaned.tif...
+X left: -112.18395632894597
+X right: -104.0305559089358
+Y top: 49.0163131152675
+Y bottom: 46.63570638327659
+
+'''
