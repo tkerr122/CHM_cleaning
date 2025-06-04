@@ -497,8 +497,9 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     survey = get_chm_survey(input_chm)[0]
     state = get_chm_survey(input_chm)[1]
     tiles = get_chm_loc(chm)
+    wc_tiles = get_worldcover_loc(chm)
 
-    print(f"Got CHM info: \tsurvey: {survey}\t state: {state}\t tile: {tiles}")
+    print(f"Got CHM info: \tsurvey: {survey}\t state: {state}\t tile(s): {tiles}\n worldcover tile(s): {wc_tiles}")
     
     chm = None
     
@@ -543,6 +544,17 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             
             water_path.append(w_path)
             landsat_path.append(n_path)
+            
+        # Worldcover images
+        worldcover_path = []
+        for tile in wc_tiles:
+            wc_path = os.path.join(data_folders[6], tile)
+            
+            if os.path.isfile(wc_path) == False:
+                print(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey
+            
+            worldcover_path.append(wc_path)
         
     except InvalidSurvey:
         shutil.rmtree(temp)
@@ -561,6 +573,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     chm_cropped_path = crop_raster(input_chm, temp, crs, pixel_size, cutline)
     powerlines_cropped_path = crop_raster(output_powerlines, temp, crs, pixel_size, cutline)
     water_cropped_path = crop_raster(water_path, temp, crs, pixel_size, cutline)
+    worldcover_cropped_path = crop_raster(worldcover_path, temp, crs, pixel_size, cutline)
     if sm == True:
         landsat_cropped_path = crop_raster(landsat_path, temp, crs, pixel_size, cutline)
     if man_pwl == True:
@@ -576,7 +589,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     if "man_slp_cropped_path" not in locals():
         man_slp_cropped_path = None
         
-    return chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, man_slp_cropped_path
+    return chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
 
 def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, sm=False, man_pwl=False, man_slp=False, height_threshold=None, ndvi_threshold=None, water_mask_values=[2, 3, 4, 5, 6, 7, 8, 11]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
