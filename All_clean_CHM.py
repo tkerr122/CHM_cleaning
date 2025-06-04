@@ -55,31 +55,37 @@ def get_chm_loc(chm):
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(4326)
     transform = osr.CoordinateTransformation(src_srs, dst_srs)
-    lat1, lon1, _ = transform.TransformPoint(x_left, y_top)
-    lat2, lon2, _ = transform.TransformPoint(x_left, y_bottom)
-    lat3, lon3, _ = transform.TransformPoint(x_right, y_bottom)
-    lat4, lon4, _ = transform.TransformPoint(x_right, y_top)
+    lat_min, lon_min, _ = transform.TransformPoint(x_left, y_bottom)
+    lat_max, lon_max, _ = transform.TransformPoint(x_right, y_top)
     
     # Extract tile names
-    def get_tile_name(lat, lon):
-        lat_dir = "N" if lat > 0 else "S"
-        lon_dir = "E" if lon > 0 else "W"
+    def get_tile_name(lat_min, lat_max, lon_min, lon_max):
+        tile_names = []
         
-        latitude = (int(lat) // 10) * 10 + 10 
-        longitude = (int(abs(lon)) // 10) * 10 + 10
+        lat_start = math.floor(lat_max / 10) * 10
+        lat_end = math.floor(lat_min / 10) * 10
         
-        lon_str = f"0{longitude}" if longitude < 100 else f"{longitude}"
-        return f"{latitude}{lat_dir}_{lon_str}{lon_dir}"
-    
-    # Get tile names
-    tile1 = get_tile_name(lat1, lon1)
-    tile2 = get_tile_name(lat2, lon2)
-    tile3 = get_tile_name(lat3, lon3)
-    tile4 = get_tile_name(lat4, lon4)
-    
-    tiles = sorted(set([tile1, tile2, tile3, tile4]))
+        lon_start = math.floor(lon_min / 10) * 10
+        lon_end = math.floor(lon_max / 10) * 10
+        
+        for lat in range(lat_start, lat_end + 1, 10):
+            for lon in range(lon_start, lon_end + 1, 10):
+                lat_dir = "N" if lat > 0 else "S"
+                lon_dir = "E" if lon > 0 else "W"
+        
+                lat_str = f"{abs(lat):02d}{lat_dir}"
+                lon_str = f"0{abs(lon):03d}{lon_dir}" if abs(lon) < 100 else f"{abs(lon):03d}{lon_dir}"
+                
+                tile_name = f"{lat_str}_{lon_str}"
+                tile_names.append(tile_name)
+        
+        return tile_names
+        
+    tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
+    tiles = sorted(set(tiles))
         
     return tiles
+
 
 def get_raster_info(raster_path):
     """Opens a raster at the given path.
