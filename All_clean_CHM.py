@@ -62,8 +62,8 @@ def get_chm_loc(chm):
     def get_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
         
-        lat_start = math.floor(lat_max / 10) * 10
-        lat_end = math.floor(lat_min / 10) * 10
+        lat_start = math.ceil(lat_max / 10) * 10
+        lat_end = math.ceil(lat_min / 10) * 10
         
         lon_start = math.floor(lon_min / 10) * 10
         lon_end = math.floor(lon_max / 10) * 10
