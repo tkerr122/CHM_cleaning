@@ -68,13 +68,13 @@ def get_chm_loc(chm):
         lon_start = math.floor(lon_min / 10) * 10
         lon_end = math.floor(lon_max / 10) * 10
         
-        for lat in range(lat_start, lat_end + 1, 10):
+        for lat in range(lat_start, lat_end - 1, -10):
             for lon in range(lon_start, lon_end + 1, 10):
-                lat_dir = "N" if lat > 0 else "S"
-                lon_dir = "E" if lon > 0 else "W"
+                lat_dir = "N" if lat >= 0 else "S"
+                lon_dir = "E" if lon >= 0 else "W"
         
                 lat_str = f"{abs(lat):02d}{lat_dir}"
-                lon_str = f"0{abs(lon):03d}{lon_dir}" if abs(lon) < 100 else f"{abs(lon):03d}{lon_dir}"
+                lon_str = f"{abs(lon):03d}{lon_dir}"
                 
                 tile_name = f"{lat_str}_{lon_str}"
                 tile_names.append(tile_name)
