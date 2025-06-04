@@ -1,9 +1,9 @@
 from All_clean_CHM import *
 
-#TODO: figure out how to fill gaps between edges of bounding box (rasters in between both extremes)
+#TODO: modify original function to include loop over range of tiles
 
 
-def get_chm_loc2(chm):
+def get_worldcover_loc(chm):
     """Takes given raster dataset and finds which lat lon tiles it intersects with, returns a list of the tiles.
 
     Args:
@@ -60,11 +60,15 @@ def get_chm_loc2(chm):
         
     return tiles
 
-chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/CHM_testing/WY_GrandTeton/WY_GrandTeton_CHM_cleaned.tif")
+chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/CHM_testing/UT_WestEast/UT_WestEast_CHM_cleaned.tif")
 
-worldcover = get_chm_loc2(chm)
-print(f"\n{worldcover}")
-
+worldcover = get_worldcover_loc(chm)
+paths = []
+for tile in worldcover:
+    path = os.path.join("Z:\Theo\Data\Lidar\CHM_cleaning\WorldCover", tile)
+    paths.append(path)
+    
+print(paths)
 '''
 Read in ESA_WorldCover_10m_2021_v200_N48W111_Map.tif...
 X left: -111.0
