@@ -1,6 +1,8 @@
 from All_clean_CHM import *
-
-chm, _, _, _, _ = get_raster_info("/gpfs/glad1/Theo/Data/Lidar/Cleaned_CHMs/CA_SierraNevada_CHM_cleaned.tif")
-
-tiles = get_chm_loc(chm)
-print(tiles)
+"""
+#TODO: 
+1. Add a step in preprocess_data_layers function for worldcover
+2. Write a mask_worldcover function
+    - Should take input chm array, input worldcover array, mask values to set as 255, and mask values to set as 0
+3. Add mask_worldcover to clean_chm function
+"""

@@ -709,7 +709,13 @@ def main(input_folder, output_folder, data_folders, crs, pixel_size):
 if __name__ == "__main__":
     input_folder = "/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/For_cleaning"
     output_folder = "/gpfs/glad1/Theo/Data/Lidar/Cleaned_CHMs"
-    data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp"]
+    data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp", 
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover"]
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
     main(input_folder, output_folder, data_folders, crs, pixel_size)
