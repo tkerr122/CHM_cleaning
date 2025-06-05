@@ -332,7 +332,7 @@ def mask_water(chm_array, water_array, water_mask_values):
     Args:
         chm_array (np.array): array for the CHM.
         water_array (np.array): array for the water mask.
-        water_mask_values (list): list of pixel values to retain as "True" for the water mask.
+        water_mask_values (list): list of water categories to retain as "True" for the water mask.
 
     Returns:
         np.array: cleaned CHM array.
@@ -443,7 +443,6 @@ def mask_slope(chm_array, ndvi_array, height_threshold):
         chm_array (np.array): array for the CHM.
         ndvi_array (np.array): array for the NDVI.
         height_threshold (int): 8-bit scaled height threshold value.
-        slope_8bit (np.array, optional): array of manual slope errors. Defaults to None.
 
     Returns:
         np.array: cleaned CHM array.
@@ -464,12 +463,12 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_
         chm_array (np.array): array for the CHM
         slope_array (np.array): array for the manual slope errors file
         wc_array (np.array): array for the worldcover image
-        wc_mask_values (list): list of pixel values to retain as "True" for the wc mask
-        wc_nodata_values (list): list of pixel values to retain as "True" for the wc nodata mask
+        wc_mask_values (list): list of land cover types to retain as "True" for the wc mask
+        wc_nodata_values (list): list of land cover types to retain as "True" for the wc nodata mask
 
     Returns:
         np.array: cleaned CHM array
-    """
+    """        
     # Set areas designated as ground to 0
     ground_mask = (slope_array == 0)
     chm_array = np.where(ground_mask, 0, chm_array)
@@ -488,7 +487,7 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_
     condition_mask_2 = (wc_nodata_mask == 1) & slope_mask
     chm_cleaned = np.where(condition_mask_2, 255, chm_cleaned)
     chm_cleaned[chm_array == 255] = 255
-    print("Cleaned CHM slope using WorldCover...")
+    print("Cleaned CHM slope errors using WorldCover...")
     
     return chm_cleaned
 
@@ -621,8 +620,9 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, sm=False, man_pwl=False, man_slp=False, height_threshold=None, ndvi_threshold=None, water_mask_values=[2, 3, 4, 5, 6, 7, 8, 11], wc_mask_values=[60, 70, 80], wc_nodata_values=[50]):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, sm=False, man_pwl=False, man_slp=False, height_threshold=None, ndvi_threshold=None, water_mask_values=[2, 3, 4, 5, 6, 7, 8, 11], wc_mask_values=[30, 60, 70, 80, 100], wc_nodata_values=[50]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
+    There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to either mask (set pixel value to 0) or remove as no data (set pixel value to 255)
     Steps:
     1. Gets raster information for the CHM.
     2. Creates a canopy cutline according to the survey.
@@ -630,8 +630,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     4. Sets up blank output raster.
     5. Masks powerlines, water, and slope (if speficied).
         - If man_pwl == True, will also buffer and mask the CHM to the manual powerlines file.
-        - If sm == True, will mask slope across entire extent of CHM.
-        - If man_slp == True, will mask slope across extent of manual slope errors shapefile.
+        - If sm == True, will use NDVI to mask slope across entire extent of CHM
+        - If man_slp == True, will mask slope across extent of manual slope errors shapefile using WorldCover dataset
     6. Writes the new raster (and deletes the temp files, if specified).
 
     Args:
@@ -648,6 +648,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         height_threshold (int, optional): height threshold (values above this number are considered) used for slope masking. Defaults to None.
         ndvi_threshold (int, optional): NDVI threshold (values above this are kept). Defaults to None.
         water_mask_values (list, optional): list of pixel values from water image to use when masking water (i.e. if value in list, set CHM value to 0). Defaults to [2, 3, 4, 5, 6, 7, 8, 11]
+        wc_mask_values (list, optional): list of pixel values to retain as "True" for the wc mask
+        wc_nodata_values (list, optional): list of pixel values to retain as "True" for the wc nodata mask
     """
     # Start message
     print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
@@ -696,32 +698,31 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     water_8bit = None
     
     # Mask CHM by slope (if specified)
-    if sm == True:        
-        if man_slp == True:
-            # Read in manual slope mask raster (if specified), use to clean slope
-            slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
-            wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
-            slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
-            wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
-                        
-            chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values, wc_nodata_values)
-            
-            slope_cropped = None
-            slope_8bit = None
-            wc_cropped = None
-            wc_8bit = None
+    if man_slp == True:
+        # Read in manual slope mask raster (if specified), use to clean slope
+        slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
+        wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
+        slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
+        wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
+                    
+        chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values, wc_nodata_values)
         
-        else:
-            # Create NDVI mask
-            ndvi_path = calc_ndvi_by_block(landsat_cropped_path, temp, ndvi_threshold)
-            ndvi_cropped, n_xsize, n_ysize, _, _ = get_raster_info(ndvi_path)
-            ndvi_8bit = ndvi_cropped.GetRasterBand(1).ReadAsArray(0, 0, n_xsize, n_ysize).astype(np.uint8)
-            
-            # Clean slope errors (without using manual slope mask raster)
-            chm_cleaned = mask_slope(chm_cleaned, ndvi_8bit, height_threshold)
-    
-            ndvi_cropped = None
-            ndvi_8bit = None
+        slope_cropped = None
+        slope_8bit = None
+        wc_cropped = None
+        wc_8bit = None
+        
+    if sm == True:        
+        # Create NDVI mask
+        ndvi_path = calc_ndvi_by_block(landsat_cropped_path, temp, ndvi_threshold)
+        ndvi_cropped, n_xsize, n_ysize, _, _ = get_raster_info(ndvi_path)
+        ndvi_8bit = ndvi_cropped.GetRasterBand(1).ReadAsArray(0, 0, n_xsize, n_ysize).astype(np.uint8)
+        
+        # Clean slope errors (without using manual slope mask raster)
+        chm_cleaned = mask_slope(chm_cleaned, ndvi_8bit, height_threshold)
+
+        ndvi_cropped = None
+        ndvi_8bit = None
 
         
     # Write cleaned CHM to new raster

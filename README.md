@@ -11,3 +11,10 @@ The general overview of the cleaning process is:
  - The user can input the name of the raw CHM to the Clean_CHM.py script along with various flags in order to clean the CHM.
  - These flags include:
       - [-s: survey name] [-bs: powerline buffer size] [-st: save intermediate temp rasters] [-sm: mask out slope errors] [-mp: use a manually collected vector powerline layer] [-ms: use a manually collected vector slope mask layer] [-ht: height threshold for slope masking (values above this number are considered)] [-nt: NDVI threshold for slope masking (value above this are kept)] [-wmv: list of pixel values from the water raster to use when masking water]
+
+Dataset sources: 
+
+- Water dataset: https://glad.umd.edu/dataset/global-surface-water-dynamics
+- NDVI dataset:
+- WorldCover dataset: https://github.com/ESA-WorldCover/esa-worldcover-datasets
+- Power line dataset: https://overpass-turbo.eu/

@@ -18,6 +18,8 @@ desired, slope errors, using specific values for height and NDVI thresholds.
 -ht option: height threshold (values above this number are considered) used for slope masking. Defaults to 120.
 -nt option: NDVI threshold (values above this are kept). Defaults to 120.
 -wmv option: list of pixel values from water image to use when masking water. 
+-wcmv option: list of pixel values from worldcover image for masking
+-wcndv option: list of pixel values from worldcover image for masking no data
 
 Assumes the following input variables are hardcoded:
  - input_chm
@@ -38,9 +40,9 @@ parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual
 parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
 parser.add_argument("-ht", "--height-threshold", type=int, help="Height threshold")
 parser.add_argument("-nt", "--ndvi-threshold", type=int, default=120, help="NDVI threshold")
-parser.add_argument("-wmv", "--water-mask-values", type=list, default=[2, 3, 4, 5, 6, 7, 8, 11], help="Water mask values")
-parser.add_argument("-wcmv", "--wc-mask-values", type=list, default=[60, 70, 80], help="WorldCover mask values")
-parser.add_argument("-wcndv", "--wc-nodata-values", type=list, default=[50], help="WorldCover nodata values")
+parser.add_argument("-wmv", "--water-mask-values", nargs='+', type=int, default=[2, 3, 4, 5, 6, 7, 8, 11], help="List of water mask values")
+parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 80, 100], help="List of WorldCover mask values")
+parser.add_argument("-wcndv", "--wc-nodata-values", nargs='+', type=int, default=[50], help="List of WorldCover nodata values")
 
 # Parse arguments
 args = parser.parse_args()
