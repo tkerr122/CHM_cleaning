@@ -525,7 +525,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     tiles = get_chm_loc(chm)
     wc_tiles = get_worldcover_loc(chm)
 
-    print(f"Got CHM info: \tsurvey: {survey}\t state: {state}\t tile(s): {tiles}\n worldcover tile(s): {wc_tiles}")
+    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\ttile(s): {tiles}\nworldcover tile(s): {wc_tiles}")
     
     chm = None
     
