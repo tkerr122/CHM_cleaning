@@ -39,6 +39,8 @@ parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with man
 parser.add_argument("-ht", "--height-threshold", type=int, help="Height threshold")
 parser.add_argument("-nt", "--ndvi-threshold", type=int, default=120, help="NDVI threshold")
 parser.add_argument("-wmv", "--water-mask-values", type=list, default=[2, 3, 4, 5, 6, 7, 8, 11], help="Water mask values")
+parser.add_argument("-wcmv", "--wc-mask-values", type=list, default=[60, 70, 80], help="WorldCover mask values")
+parser.add_argument("-wcndv", "--wc-nodata-values", type=list, default=[50], help="WorldCover nodata values")
 
 # Parse arguments
 args = parser.parse_args()
@@ -53,6 +55,8 @@ man_slp = args.man_slp
 height_threshold = args.height_threshold
 ndvi_threshold = args.ndvi_threshold
 water_mask_values = args.water_mask_values
+wc_mask_values = args.wc_mask_values
+wc_nodata_values = args.wc_nodata_values
 
 input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
 output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
@@ -72,4 +76,4 @@ else:
     output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned.tif"
 
 # Clean the CHM
-clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, slope_mask, man_pwl, man_slp, height_threshold, ndvi_threshold, water_mask_values)
+clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, slope_mask, man_pwl, man_slp, height_threshold, ndvi_threshold, water_mask_values, wc_mask_values, wc_nodata_values)
