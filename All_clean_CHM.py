@@ -593,7 +593,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         slope_errors = extract_polygon(data_folders[5], survey, temp)
         
         # Rasterize the slope errors
-        slope_mask_path = os.path.join(temp, f"{survey}_slope_mask.tif")
+        slope_mask_path = os.path.join(temp, f"slope_mask_{survey}.tif")
         rasterize(slope_errors, slope_mask_path, pixel_size)
         
     # Crop the rasters to the extent of the canopy mask layer

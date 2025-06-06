@@ -74,6 +74,8 @@ pixel_size = 4.77731426716
 
 if slope_mask == True:
     output_tiff = os.path.join(output_folder, f"ndvi{ndvi_threshold}_height{height_threshold}_{survey}_CHM_cleaned.tif")
+if man_slp == True:
+    output_tiff = os.path.join(output_folder, f"test_slope_{survey}_CHM_cleaned.tif")
 else:
     output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned.tif"
 
