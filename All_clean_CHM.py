@@ -437,7 +437,6 @@ def calc_ndvi_by_block(input_image, output_folder, threshold_value=None, mask=Tr
 
 def mask_slope(chm_array, ndvi_array, height_threshold):
     """Takes in an array for the CHM and the NDVI mask (must be same dimensions) and sets CHM values to 0 where the CHM height is above the given threshold, masking with NDVI mask.
-    If slope_mask array is provided, will only mask the portions of the CHM that overlap the slope_mask array, using those values as the height threshold.
 
     Args:
         chm_array (np.array): array for the CHM.
