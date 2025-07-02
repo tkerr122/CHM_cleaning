@@ -2,6 +2,7 @@
 # For use on linux cluster "gdalenv" conda env
 
 from All_clean_CHM import *
+from test import *
 import argparse
 gdal.UseExceptions()
 
@@ -22,7 +23,7 @@ Assumes the following input variables are hardcoded:
 
 """
 # Create argument parser
-parser = argparse.ArgumentParser(description="Script for cleaning single CHM")
+parser = argparse.ArgumentParser(description="Script for generating redgreen ratio for a CHM")
 parser.add_argument("-s", "--survey", type=str, help="Survey name", required=True)
 
 # Parse arguments
@@ -44,12 +45,12 @@ pixel_size = 4.77731426716
 temp = os.path.join(output_folder, "temp")
 
 print("\n")
-print(f" CALCULATING NDVI FOR {os.path.basename(input_chm)} ".center(50, '*'))
+print(f" CALCULATING REDGREEN FOR {os.path.basename(input_chm)} ".center(50, '*'))
 # Preprocess CHM
-chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, _, _, _= preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, sm=True)
+chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, _, _, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, sm=True)
     
 # Calculate NDVI
-ndvi_path = calc_ndvi_by_block(landsat_cropped_path, temp, mask=False)
-print(f"NDVI raster written to {ndvi_path}")
-print(f" FINISHED CALCULATING NDVI FOR {os.path.basename(input_chm)}".center(50, '*'))
+redgreen_path = calc_redgreen_by_block(landsat_cropped_path, temp, mask=False)
+print(f"Redgreen raster written to {redgreen_path}")
+print(f" FINISHED CALCULATING REDGREEN FOR {os.path.basename(input_chm)}".center(50, '*'))
 print("\n")

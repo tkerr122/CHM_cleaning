@@ -490,6 +490,95 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_
     
     return chm_cleaned
 
+def calc_redgreen(red_band, green_band, output_band, x, y, cols, rows, threshold_value, mask): 
+    """Takes in red and green bands from an image raster, a desired redgreen threshold value (on 8-bit scale), and the position/size of the image raster.
+    Calculates redgreen ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
+    If mask == False, writes the redgreen array to the output band.  
+
+    Args:
+        red_band (gdal.RasterBand): Red band from image raster.
+        green_band (gdal.RasterBand): Green band from image raster.
+        output_band (gdal.RasterBand): desired band of output raster to write the NDVI mask to threshold_value (int): 8-bit scaled NDVI threshold value.
+        x (int): x position in the image raster.
+        y (int): y position in the image raster.
+        cols (int): x size of the image raster.
+        rows (int): y size of the image raster.
+        threshold_value (int): 8-bit scaled NDVI threshold value.
+        mask (bool): whether to create an NDVI mask based on given threshold value.
+    """
+    # Read in bands as numpy array
+    red_32 = red_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
+    green_32 = green_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
+        
+    # Calculate NDVI
+    numerator = np.subtract(red_32, green_32)
+    denominator = np.add(red_32, green_32)
+    epsilon = 1e-6
+    denominator[denominator == 0] = epsilon 
+    result = np.divide(numerator, denominator)
+    
+    # Remove out of bounds areas
+    result[result == -0] = 0
+    
+    # Scale to 8-bit and mask to threshold, if specified
+    redgreen = np.multiply((result + 1), (2**7 - 1))
+    if mask == True: 
+        redgreen = np.where(redgreen > threshold_value, 1, 255)
+    
+    # Write to raster
+    output_band.WriteArray(redgreen, x, y)
+    del redgreen
+        
+def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mask=True):
+    """Uses array indexing to compute NDVI by block for a given landsat image using the calc_ndvi function.
+    
+    Args:
+        input_image (str): path to landsat image raster.
+        output_folder (str): path to desired output folder.
+        threshold_value (int, optional): 8-bit scaled NDVI threshold value. Defaults to None.
+        mask (bool, optional): whether to create an NDVI mask based on given threshold value. Defaults to True.
+
+    Returns:
+        str: path to output NDVI raster.
+    """
+    # Read in landsat image
+    landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image)
+    red = landsat_image.GetRasterBand(1)
+    green = landsat_image.GetRasterBand(3)
+    
+    # Set block size
+    x_block_size = 256
+    y_block_size = 160
+    
+    # Create new raster
+    if threshold_value is not None:
+        output_path = os.path.join(output_folder, f"redgreen_{threshold_value}.tif")
+    else:
+        output_path = os.path.join(os.path.dirname(output_folder), f"redgreen.tif")
+    output = gdal.GetDriverByName("GTiff").Create(output_path, xsize, ysize, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES"])
+    output_band = output.GetRasterBand(1)
+    output_band.SetNoDataValue(255)
+    output.SetGeoTransform(geotransform)
+    output.SetProjection(srs.ExportToWkt())
+    
+    # Mask NDVI
+    total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
+    progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block")
+    
+    for y in range(0, ysize, y_block_size):
+        rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
+        for x in range(0, xsize, x_block_size):
+            cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
+            calc_redgreen(red, green, output_band, x, y, cols, rows, threshold_value, mask)
+            progress_bar.update(1)
+     
+    progress_bar.close()
+    output_band = None
+    output = None
+    landsat_image = None
+    
+    return output_path
+
 def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, sm=False, man_pwl=False, man_slp=False):
     """Creates a temporary folder for all intermediate data layers and performs preprocessing on them such as buffering, cropping, and generating file paths as specified.
     If the temp folder already exists, will just return the filenames of the previously created layers. 
