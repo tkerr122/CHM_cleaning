@@ -25,8 +25,5 @@ The general overview of the cleaning process is:
       [-wcndv option: list of pixel values from worldcover image for masking no data]
 
 Dataset sources: 
-
-- Water dataset: https://glad.umd.edu/dataset/global-surface-water-dynamics
-- NDVI dataset: https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/download.html
 - WorldCover dataset: https://github.com/ESA-WorldCover/esa-worldcover-datasets
 - Power line dataset: https://overpass-turbo.eu/

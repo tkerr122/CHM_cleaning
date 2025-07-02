@@ -80,44 +80,10 @@ def get_chm_loc(chm):
                 tile_names.append(tile_name)
         
         return tile_names
-        
-    tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
-    tiles = sorted(set(tiles))
-        
-    return tiles
-
-def get_worldcover_loc(chm):
-    """Takes given raster dataset and finds which lat lon tiles it intersects with, returns a list of the tiles.
-
-    Args:
-        chm (GDAL raster): CHM raster.
-
-    Returns:
-        list: list of the tiles intersecting with the CHM.
-    """
-    # Get CHM geotransform info
-    gt = chm.GetGeoTransform()
-    xsize = chm.RasterXSize
-    ysize = chm.RasterYSize
     
-    x_left = gt[0]
-    y_top = gt[3]
-    
-    x_right = x_left + (xsize * gt[1])
-    y_bottom = y_top + (ysize * gt[5])
-    
-    # Find what lat lon tile it intersects with
-    src_srs = osr.SpatialReference()
-    src_srs.ImportFromEPSG(3857)
-    dst_srs = osr.SpatialReference()
-    dst_srs.ImportFromEPSG(4326)
-    transform = osr.CoordinateTransformation(src_srs, dst_srs)
-    lat_min, lon_min, _ = transform.TransformPoint(x_left, y_bottom)
-    lat_max, lon_max, _ = transform.TransformPoint(x_right, y_top)
-    
-    # Extract tile names
-    def get_tile_name(lat_min, lat_max, lon_min, lon_max):
-        tile_names = []
+    # Extract WorldCover tile names
+    def get_wc_tile_name(lat_min, lat_max, lon_min, lon_max):
+        wc_names = []
         
         lat_start = math.floor(lat_min / 3) * 3
         lat_end = math.floor(lat_max / 3) * 3
@@ -134,14 +100,17 @@ def get_worldcover_loc(chm):
                 lon_str = f"{lon_dir}{abs(lon):03d}"
                 
                 tile_name = f"ESA_WorldCover_10m_2021_v200_{lat_str}{lon_str}_Map.tif"
-                tile_names.append(tile_name)
+                wc_names.append(tile_name)
         
-        return tile_names
+        return wc_names
         
     tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
     tiles = sorted(set(tiles))
+    
+    wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
+    wc_tiles = sorted(set(wc_tiles))
         
-    return tiles
+    return tiles, wc_tiles
 
 def get_raster_info(raster_path):
     """Opens a raster at the given path.
@@ -326,7 +295,7 @@ def mask_powerlines(chm_array, powerlines_array):
     
     return chm_cleaned
 
-def mask_water(chm_array, water_array, water_mask_values):
+def mask_water(chm_array, water_array):
     """Takes in an array for the CHM and the water mask (must be same dimensions) and sets CHM values to 0 where there is water.
 
     Args:
@@ -337,120 +306,9 @@ def mask_water(chm_array, water_array, water_mask_values):
     Returns:
         np.array: cleaned CHM array.
     """
-    water_mask = np.isin(water_array, water_mask_values).astype(int)
-    water_mask[water_mask == 0] = 255
-    water_mask[water_mask == 1] = 1
-    condition_mask = (water_mask == 1)
+    condition_mask = (water_array == 80)
     chm_cleaned = np.where(condition_mask, 0, chm_array)
     print("Cleaned CHM Water...")
-    
-    return chm_cleaned
-
-def calc_ndvi(nir_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
-    """Takes in nir and red bands from an image raster, a desired NDVI threshold value (on 8-bit scale), and the position/size of the image raster.
-    Calculates NDVI for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
-    If mask == False, writes the NDVI array to the output band.  
-
-    Args:
-        nir_band (gdal.RasterBand): NIR band from image raster.
-        red_band (gdal.RasterBand): Red band from image raster.
-        output_band (gdal.RasterBand): desired band of output raster to write the NDVI mask to threshold_value (int): 8-bit scaled NDVI threshold value.
-        x (int): x position in the image raster.
-        y (int): y position in the image raster.
-        cols (int): x size of the image raster.
-        rows (int): y size of the image raster.
-        threshold_value (int): 8-bit scaled NDVI threshold value.
-        mask (bool): whether to create an NDVI mask based on given threshold value.
-    """
-    # Read in bands as numpy array
-    nir_32 = nir_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
-    red_32 = red_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
-        
-    # Calculate NDVI
-    numerator = np.subtract(nir_32, red_32)
-    denominator = np.add(nir_32, red_32)
-    epsilon = 1e-6
-    denominator[denominator == 0] = epsilon 
-    result = np.divide(numerator, denominator)
-    
-    # Remove out of bounds areas
-    result[result == -0] = 0
-    
-    # Scale to 8-bit and mask to threshold, if specified
-    ndvi = np.multiply((result + 1), (2**7 - 1))
-    if mask == True: 
-        ndvi = np.where(ndvi > threshold_value, 1, 255)
-    
-    # Write to raster
-    output_band.WriteArray(ndvi, x, y)
-    del ndvi
-        
-def calc_ndvi_by_block(input_image, output_folder, threshold_value=None, mask=True):
-    """Uses array indexing to compute NDVI by block for a given landsat image using the calc_ndvi function.
-    
-    Args:
-        input_image (str): path to landsat image raster.
-        output_folder (str): path to desired output folder.
-        threshold_value (int, optional): 8-bit scaled NDVI threshold value. Defaults to None.
-        mask (bool, optional): whether to create an NDVI mask based on given threshold value. Defaults to True.
-
-    Returns:
-        str: path to output NDVI raster.
-    """
-    # Read in landsat image
-    landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image)
-    nir = landsat_image.GetRasterBand(2)
-    red = landsat_image.GetRasterBand(1)
-    
-    # Set block size
-    x_block_size = 256
-    y_block_size = 160
-    
-    # Create new raster
-    if threshold_value is not None:
-        output_path = os.path.join(output_folder, f"ndvi_{threshold_value}.tif")
-    else:
-        output_path = os.path.join(os.path.dirname(output_folder), f"ndvi.tif")
-    output = gdal.GetDriverByName("GTiff").Create(output_path, xsize, ysize, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES"])
-    output_band = output.GetRasterBand(1)
-    output_band.SetNoDataValue(255)
-    output.SetGeoTransform(geotransform)
-    output.SetProjection(srs.ExportToWkt())
-    
-    # Mask NDVI
-    total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
-    progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block")
-    
-    for y in range(0, ysize, y_block_size):
-        rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
-        for x in range(0, xsize, x_block_size):
-            cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
-            calc_ndvi(nir, red, output_band, x, y, cols, rows, threshold_value, mask)
-            progress_bar.update(1)
-     
-    progress_bar.close()
-    output_band = None
-    output = None
-    landsat_image = None
-    
-    return output_path
-
-def mask_slope(chm_array, ndvi_array, height_threshold):
-    """Takes in an array for the CHM and the NDVI mask (must be same dimensions) and sets CHM values to 0 where the CHM height is above the given threshold, masking with NDVI mask.
-
-    Args:
-        chm_array (np.array): array for the CHM.
-        ndvi_array (np.array): array for the NDVI.
-        height_threshold (int): 8-bit scaled height threshold value.
-
-    Returns:
-        np.array: cleaned CHM array.
-    """
-    ndvi_mask = (ndvi_array == 255)
-    threshold_mask = (chm_array > height_threshold) & ndvi_mask
-    chm_cleaned = np.where(threshold_mask, 0, chm_array)
-    chm_cleaned[chm_array == 255] = 255
-    print("Cleaned CHM slope errors...")
     
     return chm_cleaned
 
@@ -490,7 +348,7 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_
     
     return chm_cleaned
 
-def calc_redgreen(red_band, green_band, output_band, x, y, cols, rows, threshold_value, mask): 
+def calc_redgreen(green_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
     """Takes in red and green bands from an image raster, a desired redgreen threshold value (on 8-bit scale), and the position/size of the image raster.
     Calculates redgreen ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
     If mask == False, writes the redgreen array to the output band.  
@@ -507,12 +365,12 @@ def calc_redgreen(red_band, green_band, output_band, x, y, cols, rows, threshold
         mask (bool): whether to create an NDVI mask based on given threshold value.
     """
     # Read in bands as numpy array
-    red_32 = red_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
     green_32 = green_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
+    red_32 = red_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
         
     # Calculate NDVI
-    numerator = np.subtract(red_32, green_32)
-    denominator = np.add(red_32, green_32)
+    numerator = np.subtract(green_32, red_32)
+    denominator = np.add(green_32, red_32)
     epsilon = 1e-6
     denominator[denominator == 0] = epsilon 
     result = np.divide(numerator, denominator)
@@ -579,7 +437,26 @@ def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mas
     
     return output_path
 
-def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, sm=False, man_pwl=False, man_slp=False):
+def mask_city(chm_array, city_array, redgreen_array):
+    """Takes in an array for the CHM and the city mask (must be same dimensions) and sets CHM values to 0 where the CHM overlaps with city mask and the redgreen mask.
+
+    Args:
+        chm_array (np.array): array for the CHM.
+        city_array (np.array): array for the city mask.
+
+    Returns:
+        np.array: cleaned CHM array.
+    """
+    redgreen_mask = (redgreen_array == 255)
+    city_mask = (city_array == 1)
+    threshold_mask = redgreen_mask & city_mask
+    chm_cleaned = np.where(threshold_mask, 0, chm_array)
+    chm_cleaned[chm_array == 255] = 255
+    print("Cleaned CHM city errors...")
+    
+    return chm_cleaned
+
+def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, man_pwl=False, man_slp=False):
     """Creates a temporary folder for all intermediate data layers and performs preprocessing on them such as buffering, cropping, and generating file paths as specified.
     If the temp folder already exists, will just return the filenames of the previously created layers. 
     IMPORTANT: if performing multiple iterations of CHM cleaning, keep in mind that persisting the temp folder also persists the layers, so for example the powerline buffer raster will
@@ -600,7 +477,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         InvalidSurvey: depending on the condition, prints message stating how the input survey is invalid.
 
     Returns:
-        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, and man_slp_cropped_path.
+        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, and man_slp_cropped_path.              
     """
     # Check if temp folder is already populated
     if os.path.isdir(temp) == False:
@@ -610,8 +487,8 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     chm = gdal.Open(input_chm)
     survey = get_chm_survey(input_chm)[0]
     state = get_chm_survey(input_chm)[1]
-    tiles = get_chm_loc(chm)
-    wc_tiles = get_worldcover_loc(chm)
+    tiles = get_chm_loc(chm)[0]
+    wc_tiles = get_chm_loc(chm)[1]
 
     print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\ttile(s): {tiles}\nworldcover tile(s): {wc_tiles}")
     
@@ -641,36 +518,17 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             output_man_pwl = os.path.join(temp, f"{state}_man_pwl_buffer.tif")
             buffer_powerlines(man_pwl_path, output_man_pwl, crs, pixel_size, buffer_size, cutline)
         
-        # Water and Landsat images
-        water_path = []
-        landsat_path = []
-        for tile in tiles: 
-            w_path = os.path.join(data_folders[3], f"{tile}_water.tif")
-            n_path = os.path.join(data_folders[4], f"Hansen_GFC-2023-v1.11_last_{tile}.tif")
-            
-            if os.path.isfile(w_path) == False:
-                print(f"\nError: \"{tile}_water.tif\" doesn't exist.\n")
-                raise InvalidSurvey
-            
-            if os.path.isfile(n_path) == False:
-                print(f"\nError: \"Hansen_GFC-2023-v1.11_last_{tile}.tif\" doesn't exist.\n")
-                raise InvalidSurvey
-            
-            water_path.append(w_path)
-            landsat_path.append(n_path)
-            
         # Worldcover images
-        if man_slp == True:
-            worldcover_path = []
-            for tile in wc_tiles:
-                wc_path = os.path.join(data_folders[6], tile)
-                
-                if os.path.isfile(wc_path) == False:
-                    print(f"\nError: \"{tile}\" doesn't exist.\n")
-                    raise InvalidSurvey
-                
-                worldcover_path.append(wc_path)
-        
+        worldcover_path = []
+        for tile in wc_tiles:
+            wc_path = os.path.join(data_folders[3], tile)
+            
+            if os.path.isfile(wc_path) == False:
+                print(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey
+            
+            worldcover_path.append(wc_path)
+            
     except InvalidSurvey:
         shutil.rmtree(temp)
         exit()
@@ -678,7 +536,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     # If manual slope mask is specified, rasterize this as another mask layer
     if man_slp == True:
         # Extract slope errors for current survey
-        slope_errors = extract_polygon(data_folders[5], survey, temp)
+        slope_errors = extract_polygon(data_folders[4], survey, temp)
         
         # Rasterize the slope errors
         slope_mask_path = os.path.join(temp, f"slope_mask_{survey}.tif")
@@ -687,28 +545,21 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     # Crop the rasters to the extent of the canopy mask layer
     chm_cropped_path = crop_raster(input_chm, temp, crs, pixel_size, cutline)
     powerlines_cropped_path = crop_raster(output_powerlines, temp, crs, pixel_size, cutline)
-    water_cropped_path = crop_raster(water_path, temp, crs, pixel_size, cutline)
-    if sm == True:
-        landsat_cropped_path = crop_raster(landsat_path, temp, crs, pixel_size, cutline)
+    worldcover_cropped_path = crop_raster(worldcover_path, temp, crs, pixel_size, cutline)
     if man_pwl == True:
         man_pwl_cropped_path = crop_raster(output_man_pwl, temp, crs, pixel_size, cutline)
     if man_slp == True: 
         man_slp_cropped_path = crop_raster(slope_mask_path, temp, crs, pixel_size, cutline)
-        worldcover_cropped_path = crop_raster(worldcover_path, temp, crs, pixel_size, cutline)
                 
     # Return the filepaths
-    if "landsat_cropped_path" not in locals():
-        landsat_cropped_path = None
     if "man_pwl_cropped_path" not in locals():
         man_pwl_cropped_path = None
     if "man_slp_cropped_path" not in locals():
         man_slp_cropped_path = None
-    if "worldcover_cropped_path" not in locals():
-        worldcover_cropped_path = None
         
-    return chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
+    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, sm=False, man_pwl=False, man_slp=False, height_threshold=None, ndvi_threshold=None, water_mask_values=[2, 3, 4, 5, 6, 7, 8, 11], wc_mask_values=[30, 60, 70, 80, 100], wc_nodata_values=[50]):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, wc_mask_values=[30, 60, 70, 80, 100], wc_nodata_values=[50]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
     There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to either mask (set pixel value to 0) or remove as no data (set pixel value to 255)
     Steps:
@@ -718,7 +569,6 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     4. Sets up blank output raster.
     5. Masks powerlines, water, and slope (if speficied).
         - If man_pwl == True, will also buffer and mask the CHM to the manual powerlines file.
-        - If sm == True, will use NDVI to mask slope across entire extent of CHM
         - If man_slp == True, will mask slope across extent of manual slope errors shapefile using WorldCover dataset
     6. Writes the new raster (and deletes the temp files, if specified).
 
@@ -730,12 +580,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         pixel_size (float): desired pixel size for reprojection, in destination crs units.
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.
         save_temp (bool, optional): whether or not to save the temp rasters. Defaults to False.
-        sm (bool, optional): whether or not to mask out the slope errors. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
-        height_threshold (int, optional): height threshold (values above this number are considered) used for slope masking. Defaults to None.
-        ndvi_threshold (int, optional): NDVI threshold (values above this are kept). Defaults to None.
-        water_mask_values (list, optional): list of pixel values from water image to use when masking water (i.e. if value in list, set CHM value to 0). Defaults to [2, 3, 4, 5, 6, 7, 8, 11]
         wc_mask_values (list, optional): list of pixel values to retain as "True" for the wc mask
         wc_nodata_values (list, optional): list of pixel values to retain as "True" for the wc nodata mask
     """
@@ -746,7 +592,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
     
     # Preprocess the data layers
-    chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, sm, man_pwl, man_slp)
+    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
                 
     # Create output blank raster
     chm_cropped, c_xsize, c_ysize, c_geotransform, c_srs = get_raster_info(chm_cropped_path)
@@ -778,40 +624,23 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         man_pwl_8bit = None
         
     # Mask CHM by water
-    water_cropped, w_xsize, w_ysize, _, _ = get_raster_info(water_cropped_path)
-    water_8bit = water_cropped.GetRasterBand(1).ReadAsArray(0, 0, w_xsize, w_ysize).astype(np.uint8)
-    chm_cleaned = mask_water(chm_cleaned, water_8bit, water_mask_values)
-    
-    water_cropped = None
-    water_8bit = None
+    wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
+    wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
+    chm_cleaned = mask_water(chm_cleaned, wc_8bit)
     
     # Mask CHM by slope (if specified)
     if man_slp == True:
         # Read in manual slope mask raster (if specified), use to clean slope
         slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
-        wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
         slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
-        wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
                     
         chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values, wc_nodata_values)
         
         slope_cropped = None
         slope_8bit = None
-        wc_cropped = None
-        wc_8bit = None
         
-    if sm == True:        
-        # Create NDVI mask
-        ndvi_path = calc_ndvi_by_block(landsat_cropped_path, temp, ndvi_threshold)
-        ndvi_cropped, n_xsize, n_ysize, _, _ = get_raster_info(ndvi_path)
-        ndvi_8bit = ndvi_cropped.GetRasterBand(1).ReadAsArray(0, 0, n_xsize, n_ysize).astype(np.uint8)
-        
-        # Clean slope errors (without using manual slope mask raster)
-        chm_cleaned = mask_slope(chm_cleaned, ndvi_8bit, height_threshold)
-
-        ndvi_cropped = None
-        ndvi_8bit = None
-
+    wc_cropped = None
+    wc_8bit = None
         
     # Write cleaned CHM to new raster
     output_band.WriteArray(chm_cleaned)
@@ -850,10 +679,8 @@ if __name__ == "__main__":
     data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
                     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
                     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", 
-                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
-                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp", 
-                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover"]
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
+                    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp"]
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
     main(input_folder, output_folder, data_folders, crs, pixel_size)
