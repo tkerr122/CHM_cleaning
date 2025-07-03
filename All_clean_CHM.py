@@ -13,7 +13,6 @@ gdal.UseExceptions()
 class InvalidSurvey(Exception):
     pass
 
-
 def get_chm_survey(chm_path):
     """Parses given CHM path for survey and state.
 
@@ -312,16 +311,14 @@ def mask_water(chm_array, water_array):
     
     return chm_cleaned
 
-def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_values):
+def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values):
     """Takes in an array for the CHM, manual slope, and the worldcover image (must be the same dimensions) and sets the CHM values to 0 where the slope array overlaps the CHM and the worldcover pixel == wc_mask value. 
-    Also sets the CHM values to 255 where the worldcover pixel == wc_nodata_values.
 
     Args:
         chm_array (np.array): array for the CHM
         slope_array (np.array): array for the manual slope errors file
         wc_array (np.array): array for the worldcover image
         wc_mask_values (list): list of land cover types to retain as "True" for the wc mask
-        wc_nodata_values (list): list of land cover types to retain as "True" for the wc nodata mask
 
     Returns:
         np.array: cleaned CHM array
@@ -337,13 +334,7 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values, wc_nodata_
     wc_mask[wc_mask == 1] = 1
     condition_mask = (wc_mask == 1) & slope_mask
     chm_cleaned = np.where(condition_mask, 0, chm_array)
-    
-    wc_nodata_mask = np.isin(wc_array, wc_nodata_values).astype(int)
-    wc_nodata_mask[wc_nodata_mask == 0] = 255
-    wc_nodata_mask[wc_nodata_mask == 1] = 1
-    condition_mask_2 = (wc_nodata_mask == 1) & slope_mask
-    chm_cleaned = np.where(condition_mask_2, 255, chm_cleaned)
-    chm_cleaned[chm_array == 255] = 255
+
     print("Cleaned CHM slope errors using WorldCover...")
     
     return chm_cleaned
@@ -559,9 +550,9 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, wc_mask_values=[30, 60, 70, 80, 100], wc_nodata_values=[50]):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, wc_mask_values=[30, 60, 70, 80, 100]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
-    There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to either mask (set pixel value to 0) or remove as no data (set pixel value to 255)
+    There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to mask (set pixel value to 0)
     Steps:
     1. Gets raster information for the CHM.
     2. Creates a canopy cutline according to the survey.
@@ -582,8 +573,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         save_temp (bool, optional): whether or not to save the temp rasters. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
-        wc_mask_values (list, optional): list of pixel values to retain as "True" for the wc mask
-        wc_nodata_values (list, optional): list of pixel values to retain as "True" for the wc nodata mask
+        wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 80, 100]
     """
     # Start message
     print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
@@ -634,7 +624,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
         slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
                     
-        chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values, wc_nodata_values)
+        chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values)
         
         slope_cropped = None
         slope_8bit = None

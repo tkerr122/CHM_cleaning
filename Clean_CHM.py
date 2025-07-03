@@ -15,7 +15,6 @@ desired, slope errors, using specific values for height and NDVI thresholds.
 -mp option: whether or not to use a manual powerline file for additional powerline masking.
 -ms option: whether or not to use a manual slope errors shapefile for slope masking.
 -wcmv option: list of pixel values from worldcover image for masking
--wcndv option: list of pixel values from worldcover image for masking no data
 
 Assumes the following input variables are hardcoded:
  - input_chm
@@ -34,7 +33,6 @@ parser.add_argument("-st", "--save-temp", action="store_true", help="Save temp d
 parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual powerlines")
 parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
 parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 80, 100], help="List of WorldCover mask values")
-parser.add_argument("-wcndv", "--wc-nodata-values", nargs='+', type=int, default=[50], help="List of WorldCover nodata values")
 
 # Parse arguments
 args = parser.parse_args()
@@ -46,7 +44,6 @@ save_temp = args.save_temp
 man_pwl = args.man_pwl
 man_slp = args.man_slp
 wc_mask_values = args.wc_mask_values
-wc_nodata_values = args.wc_nodata_values
 
 input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
 output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
@@ -64,4 +61,4 @@ else:
     output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned.tif"
 
 # Clean the CHM
-clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, wc_mask_values, wc_nodata_values)
+clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, wc_mask_values)
