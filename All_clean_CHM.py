@@ -311,7 +311,7 @@ def mask_water(chm_array, water_array):
     
     return chm_cleaned
 
-def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values):
+def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope_array=None):
     """Takes in an array for the CHM, manual slope, and the worldcover image (must be the same dimensions) and sets the CHM values to 0 where the slope array overlaps the CHM and the worldcover pixel == wc_mask value. 
 
     Args:
@@ -322,18 +322,30 @@ def mask_worldcover(chm_array, slope_array, wc_array, wc_mask_values):
 
     Returns:
         np.array: cleaned CHM array
-    """        
-    # Set areas designated as ground to 0
-    ground_mask = (slope_array == 0)
-    chm_array = np.where(ground_mask, 0, chm_array)
+    """
+    # If slope array is provided, use that for masking
+    if slope_array is not None:
+        # Set areas designated as ground to 0
+        ground_mask = (slope_array == 0)
+        chm_array = np.where(ground_mask, 0, chm_array)
+        
+        # Mask using worldcover
+        slope_mask = (slope_array == 1)
+        wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
+        wc_mask[wc_mask == 0] = 255
+        wc_mask[wc_mask == 1] = 1
+        condition_mask = (wc_mask == 1) & slope_mask
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
     
-    # Mask using worldcover
-    slope_mask = (slope_array == 1)
-    wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
-    wc_mask[wc_mask == 0] = 255
-    wc_mask[wc_mask == 1] = 1
-    condition_mask = (wc_mask == 1) & slope_mask
-    chm_cleaned = np.where(condition_mask, 0, chm_array)
+    else:
+        # Mask CHM above height threshold using worldcover
+        wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
+        wc_mask[wc_mask == 0] = 255
+        wc_mask[wc_mask == 1] = 1
+        condition_mask = (wc_mask == 1) & (chm_array > height_threshold)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
 
     print("Cleaned CHM slope errors using WorldCover...")
     
@@ -550,7 +562,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, wc_mask_values=[30, 60, 70, 80, 100]):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
     There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to mask (set pixel value to 0)
     Steps:
@@ -573,7 +585,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         save_temp (bool, optional): whether or not to save the temp rasters. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
-        wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 80, 100]
+        wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 100]
     """
     # Start message
     print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
@@ -619,12 +631,16 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     chm_cleaned = mask_water(chm_cleaned, wc_8bit)
     
     # Mask CHM by slope (if specified)
-    if man_slp == True:
-        # Read in manual slope mask raster (if specified), use to clean slope
+    if height_threshold is not None:
+        # Use worldcover and height threshold to mask slope
+        chm_cleaned = mask_worldcover(chm_cleaned, height_threshold, wc_8bit, wc_mask_values)
+        
+    elif man_slp == True:
+        # Read in manual slope mask raster (if specified), use with worldcover to clean slope
         slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
         slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
                     
-        chm_cleaned = mask_worldcover(chm_cleaned, slope_8bit, wc_8bit, wc_mask_values)
+        chm_cleaned = mask_worldcover(chm_cleaned, height_threshold, wc_8bit, wc_mask_values, slope_8bit)
         
         slope_cropped = None
         slope_8bit = None

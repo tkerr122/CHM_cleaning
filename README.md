@@ -19,11 +19,23 @@ The general overview of the cleaning process is:
       [-mp: use a manually collected vector powerline layer] 
       [-ms: use a manually collected vector slope mask layer] 
       [-ht: height threshold for slope masking (values above this number are considered)] 
-      [-nt: NDVI threshold for slope masking (value above this are kept)] 
       [-wmv: list of pixel values from the water raster to use when masking water]
       [-wcmv option: list of pixel values from worldcover image for masking]
-      [-wcndv option: list of pixel values from worldcover image for masking no data]
 
 Dataset sources: 
 - WorldCover dataset: https://github.com/ESA-WorldCover/esa-worldcover-datasets
 - Power line dataset: https://overpass-turbo.eu/
+
+Dataset info:
+- Labels for worldcover:
+    # 10 Trees covered area
+    # 20 Shrub covered area
+    # 30 Grassland
+    # 40 Cropland
+    # 50 Built-up
+    # 60 Bare areas
+    # 70 Snow and/or ice cover
+    # 80 Permament water bodies
+    # 90 Herbaceous wetland
+    # 95 Mangroves
+    # 100 Lichens and mosses
