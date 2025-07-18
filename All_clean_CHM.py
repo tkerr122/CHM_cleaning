@@ -689,7 +689,7 @@ if __name__ == "__main__":
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/planet_tile_list.csv"]
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv"]
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
     main(input_folder, output_folder, data_folders, crs, pixel_size)
