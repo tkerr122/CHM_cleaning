@@ -40,7 +40,7 @@ data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp",
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv"]
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles"]
 crs = "EPSG:3857"
 pixel_size = 4.77731426716
 temp = os.path.join(output_folder, "temp")
@@ -48,11 +48,13 @@ temp = os.path.join(output_folder, "temp")
 print("\n")
 print(f"CALCULATING REDGREEN FOR {os.path.basename(input_chm)} ")
 
-# # Preprocess CHM
-# chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, _, _, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
+# Preprocess CHM
+chm_cropped_path, _, _, _, _, planet_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
     
-# # Calculate NDVI
-# redgreen_path = calc_redgreen_by_block(landsat_cropped_path, temp, mask=False)
-# print(f"Redgreen raster written to {redgreen_path}")
+# Calculate redgreen
+redgreen_path = calc_redgreen_by_block(planet_cropped_path, temp, mask=False)
+print(f"Redgreen raster written to {redgreen_path}")
 print(f"FINISHED CALCULATING REDGREEN FOR {os.path.basename(input_chm)}")
 print("\n")
+
+# seems that redgreen above 140 is vegetation

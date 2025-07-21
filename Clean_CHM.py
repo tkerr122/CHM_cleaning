@@ -50,10 +50,13 @@ wc_mask_values = args.wc_mask_values
 input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
 output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
 data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
-                "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
-                "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-                "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-                "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp"]
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", 
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles"]
 crs = "EPSG:3857"
 pixel_size = 4.77731426716
 

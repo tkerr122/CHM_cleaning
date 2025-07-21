@@ -125,13 +125,12 @@ def get_chm_loc(chm):
                 tile_name = f"{lat_str}_{lon_str}"
                 tile_names.append(tile_name)
         
-        planet_tiles = pd.read_csv(data_folders[7])
+        planet_tiles = pd.read_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv")
         planet_tiles = planet_tiles[planet_tiles['tile_name'].isin(tile_names)]
         
-        # test csv
-        planet_tiles['location'].to_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/test.csv", index=False)
         planet_tile_names = planet_tiles['location'].tolist()
-        
+        planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
+
         return planet_tile_names
         
     tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
@@ -559,13 +558,29 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Worldcover images
         worldcover_path = []
         for tile in wc_tiles:
-            wc_path = os.path.join(data_folders[3], tile)
+            wc_path = os.path.join(data_folders[6], tile)
             
             if os.path.isfile(wc_path) == False:
                 print(f"\nError: \"{tile}\" doesn't exist.\n")
                 raise InvalidSurvey
             
             worldcover_path.append(wc_path)
+        
+        # Planet images
+        planet_path = []
+        for tile in planet_tiles:
+            p_path = os.path.join(data_folders[7], tile)
+            
+            # For testing - remove once all planet images have been created
+            if os.path.isfile(p_path) == False:
+                print(f"Tile {tile} doesn't exist, skipping for now.")
+                continue
+            
+            # if os.path.isfile(p_path) == False:
+            #     print("\nError: \"{tile}\" doesn't exist.\n")
+            #     raise InvalidSurvey
+            
+            planet_path.append(p_path)
             
     except InvalidSurvey:
         shutil.rmtree(temp)
@@ -574,7 +589,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     # If manual slope mask is specified, rasterize this as another mask layer
     if man_slp == True:
         # Extract slope errors for current survey
-        slope_errors = extract_polygon(data_folders[4], survey, temp)
+        slope_errors = extract_polygon(data_folders[5], survey, temp)
         
         # Rasterize the slope errors
         slope_mask_path = os.path.join(temp, f"slope_mask_{survey}.tif")
@@ -584,6 +599,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     chm_cropped_path = crop_raster(input_chm, temp, crs, pixel_size, cutline)
     powerlines_cropped_path = crop_raster(output_powerlines, temp, crs, pixel_size, cutline)
     worldcover_cropped_path = crop_raster(worldcover_path, temp, crs, pixel_size, cutline)
+    planet_cropped_path = crop_raster(planet_path, temp, crs, pixel_size, cutline)
     if man_pwl == True:
         man_pwl_cropped_path = crop_raster(output_man_pwl, temp, crs, pixel_size, cutline)
     if man_slp == True: 
@@ -595,7 +611,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     if "man_slp_cropped_path" not in locals():
         man_slp_cropped_path = None
         
-    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path
+    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path
 
 def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100]):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
@@ -629,7 +645,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
     
     # Preprocess the data layers
-    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
+    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
                 
     # Create output blank raster
     chm_cropped, c_xsize, c_ysize, c_geotransform, c_srs = get_raster_info(chm_cropped_path)
@@ -664,6 +680,14 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
     wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
     chm_cleaned = mask_water(chm_cleaned, wc_8bit)
+    
+    # # Calculate redgreen
+    
+    
+    # # Mask CHM by buildings
+    # planet_cropped, planet_xsize, planet_ysize, _, _ = get_raster_info(planet_cropped_path)
+    # planet_8bit = planet_cropped.GetRasterBand(1).ReadAsArray(0, 0, planet_xsize, planet_ysize).astype(np.uint8)
+    # chm_cleaned = mask_city(chm_cleaned, planet_8bit, redgreen_array)
     
     # Mask CHM by slope (if specified)
     if height_threshold is not None:
@@ -724,7 +748,7 @@ if __name__ == "__main__":
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv"]
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles"]
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
     main(input_folder, output_folder, data_folders, crs, pixel_size)
