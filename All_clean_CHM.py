@@ -349,9 +349,10 @@ def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope
 
     Args:
         chm_array (np.array): array for the CHM
-        slope_array (np.array): array for the manual slope errors file
+        height_threshold (int): height value above which to use for masking
         wc_array (np.array): array for the worldcover image
         wc_mask_values (list): list of land cover types to retain as "True" for the wc mask
+        slope_array (np.array): array for the manual slope errors file
 
     Returns:
         np.array: cleaned CHM array
@@ -384,27 +385,27 @@ def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope
     
     return chm_cleaned
 
-def calc_redgreen(green_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
-    """Takes in red and green bands from an image raster, a desired redgreen threshold value (on 8-bit scale), and the position/size of the image raster.
-    Calculates redgreen ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
-    If mask == False, writes the redgreen array to the output band.  
+def calc_greenred(green_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
+    """Takes in red and green bands from an image raster, a desired greenred threshold value (on 8-bit scale), and the position/size of the image raster.
+    Calculates greenred ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
+    If mask == False, writes the greenred array to the output band.  
 
     Args:
         red_band (gdal.RasterBand): Red band from image raster.
         green_band (gdal.RasterBand): Green band from image raster.
-        output_band (gdal.RasterBand): desired band of output raster to write the NDVI mask to threshold_value (int): 8-bit scaled NDVI threshold value.
+        output_band (gdal.RasterBand): desired band of output raster to write the greenred mask to threshold_value (int): 8-bit scaled greenred threshold value.
         x (int): x position in the image raster.
         y (int): y position in the image raster.
         cols (int): x size of the image raster.
         rows (int): y size of the image raster.
-        threshold_value (int): 8-bit scaled NDVI threshold value.
-        mask (bool): whether to create an NDVI mask based on given threshold value.
+        threshold_value (int): 8-bit scaled greenred threshold value.
+        mask (bool): whether to create an greenred mask based on given threshold value.
     """
     # Read in bands as numpy array
     green_32 = green_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
     red_32 = red_band.ReadAsArray(x, y, cols, rows).astype(np.float32)
         
-    # Calculate NDVI
+    # Calculate greenred
     numerator = np.subtract(green_32, red_32)
     denominator = np.add(green_32, red_32)
     epsilon = 1e-6
@@ -415,28 +416,28 @@ def calc_redgreen(green_band, red_band, output_band, x, y, cols, rows, threshold
     result[result == -0] = 0
     
     # Scale to 8-bit and mask to threshold, if specified
-    redgreen = np.multiply((result + 1), (2**7 - 1))
+    greenred = np.multiply((result + 1), (2**7 - 1))
     if mask == True: 
-        redgreen = np.where(redgreen > threshold_value, 1, 255)
+        greenred = np.where(greenred < threshold_value, 1, 255)
     
     # Write to raster
-    output_band.WriteArray(redgreen, x, y)
-    del redgreen
+    output_band.WriteArray(greenred, x, y)
+    del greenred
         
-def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mask=True):
-    """Uses array indexing to compute NDVI by block for a given landsat image using the calc_ndvi function.
+def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None, mask=True):
+    """Uses array indexing to compute greenred by block for a given landsat image using the calc_greenred function.
     
     Args:
-        input_image (str): path to landsat image raster.
+        input_image_path (str): path to landsat image raster.
         output_folder (str): path to desired output folder.
-        threshold_value (int, optional): 8-bit scaled NDVI threshold value. Defaults to None.
-        mask (bool, optional): whether to create an NDVI mask based on given threshold value. Defaults to True.
+        threshold_value (int, optional): 8-bit scaled greenred threshold value. Defaults to None.
+        mask (bool, optional): whether to create an greenred mask based on given threshold value. Defaults to True.
 
     Returns:
-        str: path to output NDVI raster.
+        str: path to output greenred raster.
     """
     # Read in landsat image
-    landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image)
+    landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image_path)
     red = landsat_image.GetRasterBand(1)
     green = landsat_image.GetRasterBand(3)
     
@@ -446,16 +447,16 @@ def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mas
     
     # Create new raster
     if threshold_value is not None:
-        output_path = os.path.join(output_folder, f"redgreen_{threshold_value}.tif")
+        output_path = os.path.join(output_folder, f"greenred_{threshold_value}.tif")
     else:
-        output_path = os.path.join(os.path.dirname(output_folder), f"redgreen.tif")
+        output_path = os.path.join(os.path.dirname(output_folder), f"greenred.tif")
     output = gdal.GetDriverByName("GTiff").Create(output_path, xsize, ysize, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES"])
     output_band = output.GetRasterBand(1)
     output_band.SetNoDataValue(255)
     output.SetGeoTransform(geotransform)
     output.SetProjection(srs.ExportToWkt())
     
-    # Mask NDVI
+    # Mask greenred
     total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
     progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block")
     
@@ -463,7 +464,7 @@ def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mas
         rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
         for x in range(0, xsize, x_block_size):
             cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
-            calc_redgreen(red, green, output_band, x, y, cols, rows, threshold_value, mask)
+            calc_greenred(red, green, output_band, x, y, cols, rows, threshold_value, mask)
             progress_bar.update(1)
      
     progress_bar.close()
@@ -473,8 +474,8 @@ def calc_redgreen_by_block(input_image, output_folder, threshold_value=None, mas
     
     return output_path
 
-def mask_city(chm_array, city_array, redgreen_array):
-    """Takes in an array for the CHM and the city mask (must be same dimensions) and sets CHM values to 0 where the CHM overlaps with city mask and the redgreen mask.
+def mask_city(chm_array, greenred_array, city_array=None):
+    """Takes in an array for the CHM and the city mask (must be same dimensions) and sets CHM values to 0 where the CHM overlaps with city mask and the greenred mask.
 
     Args:
         chm_array (np.array): array for the CHM.
@@ -483,11 +484,20 @@ def mask_city(chm_array, city_array, redgreen_array):
     Returns:
         np.array: cleaned CHM array.
     """
-    redgreen_mask = (redgreen_array == 255)
-    city_mask = (city_array == 1)
-    threshold_mask = redgreen_mask & city_mask
-    chm_cleaned = np.where(threshold_mask, 0, chm_array)
-    chm_cleaned[chm_array == 255] = 255
+    # If city array is provided, use that for masking
+    if city_array is not None: 
+        city_mask = (city_array == 1)
+        greenred_mask = (greenred_array == 1)
+        condition_mask = greenred_mask & city_mask
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
+    
+    else:
+        # Mask all pixels below the greenred threshold 
+        condition_mask = (greenred_array == 1)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
+        
     print("Cleaned CHM city errors...")
     
     return chm_cleaned
@@ -613,7 +623,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100]):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
     There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to mask (set pixel value to 0)
     Steps:
@@ -676,24 +686,27 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         man_pwl_cropped = None
         man_pwl_8bit = None
         
+    # Calculate greenred
+    greenred_path = calc_greenred_by_block(planet_cropped_path, temp, gr_threshold)
+    greenred_cropped, gr_xsize, gr_ysize, _, _ = get_raster_info(greenred_path)
+    greenred_8bit = greenred_cropped.GetRasterBand(1).ReadAsArray(0, 0, gr_xsize, gr_ysize).astype(np.uint8)
+          
+    # Mask CHM by buildings
+    chm_cleaned = mask_city(chm_cleaned, greenred_8bit)
+    
+    greenred_cropped = None
+    greenred_8bit = None
+    
     # Mask CHM by water
     wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
     wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
     chm_cleaned = mask_water(chm_cleaned, wc_8bit)
     
-    # # Calculate redgreen
-    
-    
-    # # Mask CHM by buildings
-    # planet_cropped, planet_xsize, planet_ysize, _, _ = get_raster_info(planet_cropped_path)
-    # planet_8bit = planet_cropped.GetRasterBand(1).ReadAsArray(0, 0, planet_xsize, planet_ysize).astype(np.uint8)
-    # chm_cleaned = mask_city(chm_cleaned, planet_8bit, redgreen_array)
-    
     # Mask CHM by slope (if specified)
     if height_threshold is not None:
         # Use worldcover and height threshold to mask slope
         chm_cleaned = mask_worldcover(chm_cleaned, height_threshold, wc_8bit, wc_mask_values)
-        
+    
     elif man_slp == True:
         # Read in manual slope mask raster (if specified), use with worldcover to clean slope
         slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)

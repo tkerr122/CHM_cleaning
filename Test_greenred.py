@@ -3,7 +3,6 @@
 
 from All_clean_CHM import *
 import argparse
-import pandas as pd
 gdal.UseExceptions()
 
 
@@ -23,7 +22,7 @@ Assumes the following input variables are hardcoded:
 
 """
 # Create argument parser
-parser = argparse.ArgumentParser(description="Script for generating redgreen ratio for a CHM")
+parser = argparse.ArgumentParser(description="Script for generating greenred ratio for a CHM")
 parser.add_argument("-s", "--survey", type=str, help="Survey name", required=True)
 
 # Parse arguments
@@ -46,15 +45,15 @@ pixel_size = 4.77731426716
 temp = os.path.join(output_folder, "temp")
 
 print("\n")
-print(f"CALCULATING REDGREEN FOR {os.path.basename(input_chm)} ")
+print(f"CALCULATING greenred FOR {os.path.basename(input_chm)} ")
 
 # Preprocess CHM
 chm_cropped_path, _, _, _, _, planet_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
     
-# Calculate redgreen
-redgreen_path = calc_redgreen_by_block(planet_cropped_path, temp, mask=False)
-print(f"Redgreen raster written to {redgreen_path}")
-print(f"FINISHED CALCULATING REDGREEN FOR {os.path.basename(input_chm)}")
+# Calculate greenred
+greenred_path = calc_greenred_by_block(planet_cropped_path, temp, mask=False)
+print(f"greenred raster written to {greenred_path}")
+print(f"FINISHED CALCULATING greenred FOR {os.path.basename(input_chm)}")
 print("\n")
 
-# seems that redgreen above 140 is vegetation
+# seems that greenred above 140 is vegetation
