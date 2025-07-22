@@ -438,8 +438,8 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     """
     # Read in landsat image
     landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image_path)
+    green = landsat_image.GetRasterBand(2)
     red = landsat_image.GetRasterBand(1)
-    green = landsat_image.GetRasterBand(3)
     
     # Set block size
     x_block_size = 256
@@ -464,7 +464,7 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
         rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
         for x in range(0, xsize, x_block_size):
             cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
-            calc_greenred(red, green, output_band, x, y, cols, rows, threshold_value, mask)
+            calc_greenred(green, red, output_band, x, y, cols, rows, threshold_value, mask)
             progress_bar.update(1)
      
     progress_bar.close()
