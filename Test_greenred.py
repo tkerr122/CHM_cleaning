@@ -55,5 +55,3 @@ greenred_path = calc_greenred_by_block(planet_cropped_path, temp, mask=False)
 print(f"greenred raster written to {greenred_path}")
 print(f"FINISHED CALCULATING greenred FOR {os.path.basename(input_chm)}")
 print("\n")
-
-# seems that greenred above 140 is vegetation

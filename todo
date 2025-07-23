@@ -1,0 +1,9 @@
+For building masking, I added functionality to "mask_city" for a user created city array, but haven't incorporated that into preprocessing because manual collection of buildings is tough
+
+Potential next steps are:
+- Intersecting building training shapefile with lidar extent and using that as a mask
+- Using our current building map as a mask layer
+- Finding a greenred threshold with a tolerable amount of loss and using that as our building masking workflow
+
+Misc notes: 
+- Need to edit tile exists error in preprocessing function for planet tiles, currently skips the tile but when I have all the tiles for processing I need to modify to original error handling

@@ -24,19 +24,19 @@ def get_chm_survey(chm_path):
         tuple: tuple containing survey name, and state.
     """
     chm_raw = os.path.splitext(os.path.basename(chm_path))[0]
-    survey_raw = chm_raw.rsplit("_CHM")[0]
-    state = survey_raw.rsplit("_")[0]
+    survey_name = chm_raw.rsplit("_CHM")[0]
+    state = survey_name.rsplit("_")[0]
     
-    return survey_raw, state 
+    return survey_name, state 
 
 def get_chm_loc(chm):
-    """Takes given raster dataset and finds which lat lon tiles it intersects with, returns a list of the tiles.
+    """Takes given raster dataset and finds which WorldCover and Planet tiles it intersects with, returns a list of the tiles. Planet_tile_list.csv is a hardcoded path.
 
     Args:
         chm (GDAL raster): CHM raster.
 
     Returns:
-        list: list of the tiles intersecting with the CHM.
+        tuple: tuple containing World Cover tiles, and planet tiles
     """
     # Get CHM geotransform info
     gt = chm.GetGeoTransform()
@@ -58,34 +58,11 @@ def get_chm_loc(chm):
     lat_min, lon_min, _ = transform.TransformPoint(x_left, y_bottom)
     lat_max, lon_max, _ = transform.TransformPoint(x_right, y_top)
     
-    # Extract tile names
-    def get_tile_name(lat_min, lat_max, lon_min, lon_max):
-        tile_names = []
-        
-        lat_start = math.ceil(lat_max / 10) * 10
-        lat_end = math.ceil(lat_min / 10) * 10
-        
-        lon_start = math.floor(lon_min / 10) * 10
-        lon_end = math.floor(lon_max / 10) * 10
-        
-        for lat in range(lat_start, lat_end - 1, -10):
-            for lon in range(lon_start, lon_end + 1, 10):
-                lat_dir = "N" if lat >= 0 else "S"
-                lon_dir = "E" if lon >= 0 else "W"
-        
-                lat_str = f"{abs(lat):02d}{lat_dir}"
-                lon_str = f"{abs(lon):03d}{lon_dir}"
-                
-                tile_name = f"{lat_str}_{lon_str}"
-                tile_names.append(tile_name)
-        
-        return tile_names
-    
     # Extract WorldCover tile names
     def get_wc_tile_name(lat_min, lat_max, lon_min, lon_max):
         wc_names = []
         
-        lat_start = math.floor(lat_min / 3) * 3
+        lat_start = math.floor(lat_min / 3) * 3 # Worldcover tiles have 3 degree step
         lat_end = math.floor(lat_max / 3) * 3
         
         lon_start = math.floor(lon_min / 3) * 3
@@ -108,7 +85,7 @@ def get_chm_loc(chm):
     def get_planet_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
         
-        lat_start = math.ceil(lat_max)
+        lat_start = math.ceil(lat_max) # 1 degree step
         lat_end = math.ceil(lat_min)
         
         lon_start = math.floor(lon_min)
@@ -132,9 +109,6 @@ def get_chm_loc(chm):
         planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
 
         return planet_tile_names
-        
-    tiles = get_tile_name(lat_min, lat_max, lon_min, lon_max)
-    tiles = sorted(set(tiles))
     
     wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
     wc_tiles = sorted(set(wc_tiles))
@@ -142,7 +116,7 @@ def get_chm_loc(chm):
     planet_tiles = get_planet_tile_name(lat_min, lat_max, lon_min, lon_max)
     planet_tiles = sorted(set(planet_tiles))
         
-    return tiles, wc_tiles, planet_tiles
+    return wc_tiles, planet_tiles
 
 def get_raster_info(raster_path):
     """Opens a raster at the given path.
@@ -333,7 +307,6 @@ def mask_water(chm_array, water_array):
     Args:
         chm_array (np.array): array for the CHM.
         water_array (np.array): array for the water mask.
-        water_mask_values (list): list of water categories to retain as "True" for the water mask.
 
     Returns:
         np.array: cleaned CHM array.
@@ -345,14 +318,14 @@ def mask_water(chm_array, water_array):
     return chm_cleaned
 
 def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope_array=None):
-    """Takes in an array for the CHM, manual slope, and the worldcover image (must be the same dimensions) and sets the CHM values to 0 where the slope array overlaps the CHM and the worldcover pixel == wc_mask value. 
+    """Takes in an array for the CHM and worldcover, and depending on user input uses either a height threshold value to mask the entire CHM of slope errors, or uses a slope array for masking those areas, using the WorldCover mask values.
 
     Args:
-        chm_array (np.array): array for the CHM
-        height_threshold (int): height value above which to use for masking
-        wc_array (np.array): array for the worldcover image
-        wc_mask_values (list): list of land cover types to retain as "True" for the wc mask
-        slope_array (np.array): array for the manual slope errors file
+        chm_array (np.array): array for the CHM.
+        height_threshold (int): height value above which to use for masking.
+        wc_array (np.array): array for the worldcover image.
+        wc_mask_values (list): list of land cover types to retain as "True" for the wc mask.
+        slope_array (np.array, optional): array for the manual slope errors file.
 
     Returns:
         np.array: cleaned CHM array
@@ -386,7 +359,7 @@ def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope
     return chm_cleaned
 
 def calc_greenred(green_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
-    """Takes in red and green bands from an image raster, a desired greenred threshold value (on 8-bit scale), and the position/size of the image raster.
+    """Takes in green and red bands from an image raster, a desired greenred threshold value (on 8-bit scale), and the position/size of the image raster.
     Calculates greenred ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
     If mask == False, writes the greenred array to the output band.  
 
@@ -425,7 +398,7 @@ def calc_greenred(green_band, red_band, output_band, x, y, cols, rows, threshold
     del greenred
         
 def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None, mask=True):
-    """Uses array indexing to compute greenred by block for a given landsat image using the calc_greenred function.
+    """Uses array indexing to compute greenred by block for a given Planet image using the calc_greenred function.
     
     Args:
         input_image_path (str): path to landsat image raster.
@@ -475,11 +448,12 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     return output_path
 
 def mask_city(chm_array, greenred_array, city_array=None):
-    """Takes in an array for the CHM and the city mask (must be same dimensions) and sets CHM values to 0 where the CHM overlaps with city mask and the greenred mask.
+    """Takes in an array for the CHM and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a city array for masking those areas, using the greenred mask.
 
     Args:
         chm_array (np.array): array for the CHM.
-        city_array (np.array): array for the city mask.
+        greenred_array (np.array): array for the greenred mask.
+        city_array (np.array, optional): array for the city mask.
 
     Returns:
         np.array: cleaned CHM array.
@@ -505,8 +479,7 @@ def mask_city(chm_array, greenred_array, city_array=None):
 def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, man_pwl=False, man_slp=False):
     """Creates a temporary folder for all intermediate data layers and performs preprocessing on them such as buffering, cropping, and generating file paths as specified.
     If the temp folder already exists, will just return the filenames of the previously created layers. 
-    IMPORTANT: if performing multiple iterations of CHM cleaning, keep in mind that persisting the temp folder also persists the layers, so for example the powerline buffer raster will
-    be read in as is, it will not be re-buffered. 
+    IMPORTANT: if performing multiple iterations of CHM cleaning, keep in mind that persisting the temp folder also persists the layers, so for example the powerline buffer raster will be read in as is, it will not be re-buffered. 
 
     Args:
         input_chm (str): path to input chm.
@@ -515,7 +488,6 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         crs (str): string for the desired CRS, in the format "EPSG:3857" for example.
         pixel_size (float): desired pixel size for reprojection, in destination crs units.
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.
-        sm (bool, optional): whether or not to mask out the slope errors. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
 
@@ -533,11 +505,10 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     chm = gdal.Open(input_chm)
     survey = get_chm_survey(input_chm)[0]
     state = get_chm_survey(input_chm)[1]
-    tiles = get_chm_loc(chm)[0]
-    wc_tiles = get_chm_loc(chm)[1]
-    planet_tiles = get_chm_loc(chm)[2]
+    wc_tiles = get_chm_loc(chm)[0]
+    planet_tiles = get_chm_loc(chm)[1]
 
-    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\ttile(s): {tiles}\nworldcover tile(s): {wc_tiles}")
+    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\tworldcover tile(s): {wc_tiles}")
     
     chm = None
     
@@ -624,14 +595,13 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path
 
 def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140):
-    """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, mask the slope errors, use manual powerline and slope layers for maksing, desired thresholds if they do mask slope, and a list of pixel values to retain for water masking.
-    There is also functionality to use the WorldCover dataset in conjuction with a manual slope file for masking based on a set of user-inputted land cover types to mask (set pixel value to 0)
+    """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, use manual powerline and slope layers for masking, desired thresholds if they do mask slope, a list of pixel values to retain for worldcover masking, and a threshold for greenred building masking.
     Steps:
     1. Gets raster information for the CHM.
     2. Creates a canopy cutline according to the survey.
     3. Crops the rasters.
     4. Sets up blank output raster.
-    5. Masks powerlines, water, and slope (if speficied).
+    5. Masks powerlines, buildings, water, and slope (if speficied).
         - If man_pwl == True, will also buffer and mask the CHM to the manual powerlines file.
         - If man_slp == True, will mask slope across extent of manual slope errors shapefile using WorldCover dataset
     6. Writes the new raster (and deletes the temp files, if specified).
@@ -646,7 +616,9 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         save_temp (bool, optional): whether or not to save the temp rasters. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
+        height_threshold (int, optional): height threshold above which pixels will be considered for slope masking. Defaults to None.
         wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 100]
+        gr_threshold (int, optional): greenred threshold below which pixels will be masked for building masking. Defaults to 140.
     """
     # Start message
     print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
@@ -686,12 +658,10 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         man_pwl_cropped = None
         man_pwl_8bit = None
         
-    # Calculate greenred
+    # Calculate greenred and mask buildings
     greenred_path = calc_greenred_by_block(planet_cropped_path, temp, gr_threshold)
     greenred_cropped, gr_xsize, gr_ysize, _, _ = get_raster_info(greenred_path)
     greenred_8bit = greenred_cropped.GetRasterBand(1).ReadAsArray(0, 0, gr_xsize, gr_ysize).astype(np.uint8)
-          
-    # Mask CHM by buildings
     chm_cleaned = mask_city(chm_cleaned, greenred_8bit)
     
     greenred_cropped = None

@@ -14,7 +14,9 @@ desired, slope errors, using specific values for height and NDVI thresholds.
 -st option: whether or not to save the temp rasters.
 -mp option: whether or not to use a manual powerline file for additional powerline masking.
 -ms option: whether or not to use a manual slope errors shapefile for slope masking.
+-ht option: value to use for CHM-wide slope masking using worldcover
 -wcmv option: list of pixel values from worldcover image for masking
+-grt option: threshold for greenred masking
 
 Assumes the following input variables are hardcoded:
  - input_chm
@@ -22,7 +24,6 @@ Assumes the following input variables are hardcoded:
  - output_folder
  - crs
  - pixel_size
-
 """
 
 # Create argument parser
