@@ -66,7 +66,7 @@ pixel_size = 4.77731426716
 if man_slp == True:
     output_tiff = os.path.join(output_folder, f"test_slope_{survey}_CHM_cleaned.tif")
 else:
-    output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned_{greenred_threshold}gr.tif"
+    output_tiff = os.path.join(output_folder, f"{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
 
 # Clean the CHM
 clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, height_threshold, wc_mask_values, greenred_threshold)
