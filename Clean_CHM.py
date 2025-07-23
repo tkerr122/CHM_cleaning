@@ -34,6 +34,7 @@ parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual
 parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
 parser.add_argument("-ht", "--height-threshold", type=int, help="Mask slope using height threshold")
 parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 100], help="List of WorldCover mask values")
+parser.add_argument("-grt", "--greenred-threshold", type=int, default=140, help="Cutoff for greenred")
 
 # Parse arguments
 args = parser.parse_args()
@@ -46,6 +47,7 @@ man_pwl = args.man_pwl
 man_slp = args.man_slp
 height_threshold = args.height_threshold
 wc_mask_values = args.wc_mask_values
+greenred_threshold = args.greenred_threshold
 
 input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
 output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
@@ -63,7 +65,7 @@ pixel_size = 4.77731426716
 if man_slp == True:
     output_tiff = os.path.join(output_folder, f"test_slope_{survey}_CHM_cleaned.tif")
 else:
-    output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned.tif"
+    output_tiff = f"{os.path.join(output_folder, survey)}_CHM_cleaned_{greenred_threshold}gr.tif"
 
 # Clean the CHM
-clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, height_threshold, wc_mask_values)
+clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, height_threshold, wc_mask_values, greenred_threshold)
