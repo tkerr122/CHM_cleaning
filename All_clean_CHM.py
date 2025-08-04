@@ -5,9 +5,9 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import os, shutil, math
 from osgeo import gdal, osr, ogr
 from tqdm import tqdm
+import os, shutil, math
 gdal.UseExceptions()
 
 # Define custom errors
@@ -84,6 +84,7 @@ def get_chm_loc(chm):
     # Extract planet tiles
     def get_planet_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
+        tile_names_flipped = []
         
         lat_start = math.ceil(lat_max) # 1 degree step
         lat_end = math.ceil(lat_min)
@@ -100,7 +101,9 @@ def get_chm_loc(chm):
                 lon_str = f"{abs(lon):03d}{lon_dir}"
                 
                 tile_name = f"{lat_str}_{lon_str}"
+                tile_name_flipped = f"{lon_str}_{lat_str}"
                 tile_names.append(tile_name)
+                tile_names_flipped.append(tile_name_flipped)
         
         planet_tiles = pd.read_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv")
         planet_tiles = planet_tiles[planet_tiles['tile_name'].isin(tile_names)]
@@ -108,15 +111,16 @@ def get_chm_loc(chm):
         planet_tile_names = planet_tiles['location'].tolist()
         planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
 
-        return planet_tile_names
+        return tile_names_flipped, planet_tile_names
     
     wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
     wc_tiles = sorted(set(wc_tiles))
     
-    planet_tiles = get_planet_tile_name(lat_min, lat_max, lon_min, lon_max)
+    deg_tiles, planet_tiles = get_planet_tile_name(lat_min, lat_max, lon_min, lon_max)
+    deg_tiles = sorted(set(deg_tiles))
     planet_tiles = sorted(set(planet_tiles))
         
-    return wc_tiles, planet_tiles
+    return wc_tiles, planet_tiles, deg_tiles
 
 def get_raster_info(raster_path):
     """Opens a raster at the given path.
@@ -447,32 +451,23 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     
     return output_path
 
-def mask_city(chm_array, greenred_array, city_array=None):
+def mask_city(chm_array, greenred_array, building_array):
     """Takes in an array for the CHM and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a city array for masking those areas, using the greenred mask.
 
     Args:
         chm_array (np.array): array for the CHM.
         greenred_array (np.array): array for the greenred mask.
-        city_array (np.array, optional): array for the city mask.
+        building_array (np.array, optional): array for the city mask.
 
     Returns:
         np.array: cleaned CHM array.
     """
     # If city array is provided, use that for masking
-    if city_array is not None: 
-        city_mask = (city_array == 1)
-        greenred_mask = (greenred_array == 1)
-        condition_mask = greenred_mask & city_mask
-        chm_cleaned = np.where(condition_mask, 0, chm_array)
-        chm_cleaned[chm_array == 255] = 255
-    
-    else:
-        # Mask all pixels below the greenred threshold 
-        condition_mask = (greenred_array == 1)
-        chm_cleaned = np.where(condition_mask, 0, chm_array)
-        chm_cleaned[chm_array == 255] = 255
-        
-    print("Cleaned CHM city errors...")
+    condition_mask = (greenred_array == 1) & (building_array == 1)
+    chm_cleaned = np.where(condition_mask, 0, chm_array)
+    chm_cleaned[chm_array == 255] = 255
+            
+    print("Cleaned CHM building errors...")
     
     return chm_cleaned
 
@@ -503,10 +498,8 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     
     # Read in CHM and get info
     chm = gdal.Open(input_chm)
-    survey = get_chm_survey(input_chm)[0]
-    state = get_chm_survey(input_chm)[1]
-    wc_tiles = get_chm_loc(chm)[0]
-    planet_tiles = get_chm_loc(chm)[1]
+    survey, state = get_chm_survey(input_chm)
+    wc_tiles, planet_tiles, building_tiles = get_chm_loc(chm)
 
     print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\tworldcover tile(s): {wc_tiles}")
     
@@ -563,6 +556,22 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             
             planet_path.append(p_path)
             
+        # Building model tiles
+        building_path = []
+        for tile in building_tiles:
+            b_path = os.path.join(data_folders[8], tile)
+            
+            # For testing - remove once all planet images have been created
+            if os.path.isfile(b_path) == False:
+                print(f"Tile {tile} doesn't exist, skipping for now.")
+                continue
+            
+            # if os.path.isfile(b_path) == False:
+            #     print("\nError: \"{tile}\" doesn't exist.\n")
+            #     raise InvalidSurvey
+            
+            building_path.append(b_path)
+            
     except InvalidSurvey:
         shutil.rmtree(temp)
         exit()
@@ -581,6 +590,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     powerlines_cropped_path = crop_raster(output_powerlines, temp, crs, pixel_size, cutline)
     worldcover_cropped_path = crop_raster(worldcover_path, temp, crs, pixel_size, cutline)
     planet_cropped_path = crop_raster(planet_path, temp, crs, pixel_size, cutline)
+    building_cropped_path = crop_raster(building_path, temp, crs, pixel_size, cutline)
     if man_pwl == True:
         man_pwl_cropped_path = crop_raster(output_man_pwl, temp, crs, pixel_size, cutline)
     if man_slp == True: 
@@ -592,7 +602,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     if "man_slp_cropped_path" not in locals():
         man_slp_cropped_path = None
         
-    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path
+    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path
 
 def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, use manual powerline and slope layers for masking, desired thresholds if they do mask slope, a list of pixel values to retain for worldcover masking, and a threshold for greenred building masking.
@@ -627,7 +637,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
     
     # Preprocess the data layers
-    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
+    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
                 
     # Create output blank raster
     chm_cropped, c_xsize, c_ysize, c_geotransform, c_srs = get_raster_info(chm_cropped_path)
@@ -662,7 +672,9 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     greenred_path = calc_greenred_by_block(planet_cropped_path, temp, gr_threshold)
     greenred_cropped, gr_xsize, gr_ysize, _, _ = get_raster_info(greenred_path)
     greenred_8bit = greenred_cropped.GetRasterBand(1).ReadAsArray(0, 0, gr_xsize, gr_ysize).astype(np.uint8)
-    chm_cleaned = mask_city(chm_cleaned, greenred_8bit)
+    building_cropped, b_xsize, b_ysize, _, _ = get_raster_info(building_cropped_path)
+    building_8bit = building_cropped.GetRasterBand(1).ReadAsArray(0, 0, b_xsize, b_ysize).astype(np.uint8)
+    chm_cleaned = mask_city(chm_cleaned, greenred_8bit, building_8bit)
     
     greenred_cropped = None
     greenred_8bit = None
@@ -731,7 +743,8 @@ if __name__ == "__main__":
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles"]
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
+        "/gpfs/glad1/Exch/Andres_2023/by_Theo/USA_planet_2022"]
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
     main(input_folder, output_folder, data_folders, crs, pixel_size)
