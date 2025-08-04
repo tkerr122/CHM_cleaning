@@ -86,11 +86,11 @@ def get_chm_loc(chm):
         tile_names = []
         tile_names_flipped = []
         
-        lat_start = math.ceil(lat_max) # 1 degree step
-        lat_end = math.ceil(lat_min)
+        lat_start = math.floor(lat_max) # 1 degree step
+        lat_end = math.floor(lat_min)
         
-        lon_start = math.floor(lon_min)
-        lon_end = math.floor(lon_max)
+        lon_start = math.ceil(lon_min)
+        lon_end = math.ceil(lon_max)
         
         for lat in range(lat_start, lat_end - 1, -1):
             for lon in range(lon_start, lon_end + 1, 1):
@@ -457,12 +457,12 @@ def mask_city(chm_array, greenred_array, building_array):
     Args:
         chm_array (np.array): array for the CHM.
         greenred_array (np.array): array for the greenred mask.
-        building_array (np.array, optional): array for the city mask.
+        building_array (np.array): array for the city mask.
 
     Returns:
         np.array: cleaned CHM array.
     """
-    # If city array is provided, use that for masking
+    # Use building mask with greenred for masking
     condition_mask = (greenred_array == 1) & (building_array == 1)
     chm_cleaned = np.where(condition_mask, 0, chm_array)
     chm_cleaned[chm_array == 255] = 255
@@ -678,6 +678,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     
     greenred_cropped = None
     greenred_8bit = None
+    building_cropped = None
+    building_8bit = None
     
     # Mask CHM by water
     wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
