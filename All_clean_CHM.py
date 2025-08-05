@@ -110,6 +110,8 @@ def get_chm_loc(chm):
         
         planet_tile_names = planet_tiles['location'].tolist()
         planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
+        
+        tile_names_flipped = [f"{tile}.tif" for tile in tile_names_flipped]
 
         return tile_names_flipped, planet_tile_names
     
@@ -341,11 +343,10 @@ def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope
         chm_array = np.where(ground_mask, 0, chm_array)
         
         # Mask using worldcover
-        slope_mask = (slope_array == 1)
         wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
         wc_mask[wc_mask == 0] = 255
         wc_mask[wc_mask == 1] = 1
-        condition_mask = (wc_mask == 1) & slope_mask
+        condition_mask = (wc_mask == 1) & (slope_array == 1)
         chm_cleaned = np.where(condition_mask, 0, chm_array)
         chm_cleaned[chm_array == 255] = 255
     
@@ -399,7 +400,8 @@ def calc_greenred(green_band, red_band, output_band, x, y, cols, rows, threshold
     
     # Write to raster
     output_band.WriteArray(greenred, x, y)
-    del greenred
+    
+    greenred = None
         
 def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None, mask=True):
     """Uses array indexing to compute greenred by block for a given Planet image using the calc_greenred function.
@@ -451,19 +453,20 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     
     return output_path
 
-def mask_city(chm_array, greenred_array, building_array):
-    """Takes in an array for the CHM and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a city array for masking those areas, using the greenred mask.
+def mask_buildings(chm_array, greenred_array, building_array, building_threshold):
+    """Takes in an array for the CHM and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a building array for masking those areas, using the greenred mask.
 
     Args:
         chm_array (np.array): array for the CHM.
         greenred_array (np.array): array for the greenred mask.
-        building_array (np.array): array for the city mask.
+        building_array (np.array): array for the building mask.
+        building_threshold (int): threshold value for the building mask
 
     Returns:
         np.array: cleaned CHM array.
     """
     # Use building mask with greenred for masking
-    condition_mask = (greenred_array == 1) & (building_array == 1)
+    condition_mask = (greenred_array == 1) & (building_array >= building_threshold)
     chm_cleaned = np.where(condition_mask, 0, chm_array)
     chm_cleaned[chm_array == 255] = 255
             
@@ -604,7 +607,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140, building_threshold=30):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, use manual powerline and slope layers for masking, desired thresholds if they do mask slope, a list of pixel values to retain for worldcover masking, and a threshold for greenred building masking.
     Steps:
     1. Gets raster information for the CHM.
@@ -674,7 +677,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     greenred_8bit = greenred_cropped.GetRasterBand(1).ReadAsArray(0, 0, gr_xsize, gr_ysize).astype(np.uint8)
     building_cropped, b_xsize, b_ysize, _, _ = get_raster_info(building_cropped_path)
     building_8bit = building_cropped.GetRasterBand(1).ReadAsArray(0, 0, b_xsize, b_ysize).astype(np.uint8)
-    chm_cleaned = mask_city(chm_cleaned, greenred_8bit, building_8bit)
+    chm_cleaned = mask_buildings(chm_cleaned, greenred_8bit, building_8bit, building_threshold)
     
     greenred_cropped = None
     greenred_8bit = None
