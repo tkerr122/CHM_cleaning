@@ -1,9 +1,0 @@
-For building masking, I added functionality to "mask_city" for a user created city array, but haven't incorporated that into preprocessing because manual collection of buildings is tough
-
-To-do:
-- Change data_folders variable to include building mask tiles, and test the new mask_buildings function
-- Figure out how to use a smoothing filter, if needed
-
-Misc notes: 
-- Need to edit tile exists error in preprocessing function for planet tiles, currently skips the tile but when I have all the tiles for processing I need to modify to original error handling
-- 135 greenred threshold seems good for Dayton OH
