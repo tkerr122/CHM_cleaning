@@ -26,3 +26,6 @@ Thumbs.db
 
 # Environment / secrets
 .env
+
+# To-do file
+todo

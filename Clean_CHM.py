@@ -35,7 +35,7 @@ parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual
 parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
 parser.add_argument("-ht", "--height-threshold", type=int, help="Mask slope using height threshold")
 parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 100], help="List of WorldCover mask values")
-parser.add_argument("-grt", "--greenred-threshold", type=int, default=140, help="Cutoff for greenred")
+parser.add_argument("-grt", "--greenred-threshold", type=int, default=135, help="Cutoff for greenred")
 parser.add_argument("-bt", "--building-threshold", type=int, default=30, help="Cutoff for building mask")
 
 # Parse arguments
@@ -67,7 +67,7 @@ crs = "EPSG:3857"
 pixel_size = 4.77731426716
 
 if man_slp == True:
-    output_tiff = os.path.join(output_folder, f"test_slope_{survey}_CHM_cleaned.tif")
+    output_tiff = os.path.join(output_folder, f"test_slope_{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
 else:
     output_tiff = os.path.join(output_folder, f"{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
 

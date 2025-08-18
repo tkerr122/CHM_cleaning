@@ -607,7 +607,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         
     return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=140, building_threshold=30):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=135, building_threshold=30):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, use manual powerline and slope layers for masking, desired thresholds if they do mask slope, a list of pixel values to retain for worldcover masking, and a threshold for greenred building masking.
     Steps:
     1. Gets raster information for the CHM.
@@ -631,7 +631,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
         height_threshold (int, optional): height threshold above which pixels will be considered for slope masking. Defaults to None.
         wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 100]
-        gr_threshold (int, optional): greenred threshold below which pixels will be masked for building masking. Defaults to 140.
+        gr_threshold (int, optional): greenred threshold below which pixels will be masked for building masking. Defaults to 135.
+        building_threshold (int, optional): probability value for the building threshold, below which pixels will be masked for building masking. Defaults to 30.        
     """
     # Start message
     print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
