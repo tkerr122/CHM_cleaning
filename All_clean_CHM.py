@@ -84,7 +84,6 @@ def get_chm_loc(chm):
     # Extract planet tiles
     def get_planet_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
-        tile_names_flipped = []
         
         lat_start = math.floor(lat_max) # 1 degree step
         lat_end = math.floor(lat_min)
@@ -100,10 +99,8 @@ def get_chm_loc(chm):
                 lat_str = f"{abs(lat):02d}{lat_dir}"
                 lon_str = f"{abs(lon):03d}{lon_dir}"
                 
-                tile_name = f"{lat_str}_{lon_str}"
-                tile_name_flipped = f"{lon_str}_{lat_str}"
+                tile_name = f"{lon_str}_{lat_str}"
                 tile_names.append(tile_name)
-                tile_names_flipped.append(tile_name_flipped)
         
         planet_tiles = pd.read_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv")
         planet_tiles = planet_tiles[planet_tiles['TILE'].isin(tile_names)]
@@ -111,9 +108,9 @@ def get_chm_loc(chm):
         planet_tile_names = planet_tiles['location'].tolist()
         planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
         
-        tile_names_flipped = [f"{tile}.tif" for tile in tile_names_flipped]
-
-        return tile_names_flipped, planet_tile_names
+        deg_tile_names = [f"{tile}.tif" for tile in tile_names]
+        
+        return deg_tile_names, planet_tile_names
     
     wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
     wc_tiles = sorted(set(wc_tiles))
