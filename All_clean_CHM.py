@@ -106,7 +106,7 @@ def get_chm_loc(chm):
                 tile_names_flipped.append(tile_name_flipped)
         
         planet_tiles = pd.read_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv")
-        planet_tiles = planet_tiles[planet_tiles['tile_name'].isin(tile_names)]
+        planet_tiles = planet_tiles[planet_tiles['TILE'].isin(tile_names)]
         
         planet_tile_names = planet_tiles['location'].tolist()
         planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
@@ -504,7 +504,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     survey, state = get_chm_survey(input_chm)
     wc_tiles, planet_tiles, building_tiles = get_chm_loc(chm)
 
-    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}\tworldcover tile(s): {wc_tiles}")
+    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
     
     chm = None
     
