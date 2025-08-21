@@ -62,11 +62,12 @@ def get_chm_loc(chm):
     def get_wc_tile_name(lat_min, lat_max, lon_min, lon_max):
         wc_names = []
         
-        lat_start = math.floor(lat_min / 3) * 3 # Worldcover tiles have 3 degree step
-        lat_end = math.floor(lat_max / 3) * 3
+        # Worldcover tiles have 3 degree step, starting in Southwest corner
+        lat_start = math.floor(lat_min / 3) * 3 # Southmost tile
+        lat_end = math.floor(lat_max / 3) * 3 # Northmost tile
         
-        lon_start = math.floor(lon_min / 3) * 3
-        lon_end = math.floor(lon_max / 3) * 3
+        lon_start = math.floor(lon_min / 3) * 3 # Westmost tile
+        lon_end = math.floor(lon_max / 3) * 3 # Eastmost tile
         
         for lat in range(lat_start, lat_end + 1, 3):
             for lon in range(lon_start, lon_end + 1, 3):
@@ -85,14 +86,15 @@ def get_chm_loc(chm):
     def get_planet_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
         
-        lat_start = math.floor(lat_max) # 1 degree step
-        lat_end = math.floor(lat_min)
+        # Planet tiles have 1 degree step, starting in Northwest corner
+        lat_start = math.floor(lat_max) # Northmost tile
+        lat_end = math.floor(lat_min) # Southmost tile
         
-        lon_start = math.ceil(lon_min)
-        lon_end = math.ceil(lon_max)
+        lon_start = math.ceil(lon_min) # Westmost tile (because longitude in western hemisphere is negative)
+        lon_end = math.ceil(lon_max) # Eastmost tile
         
-        for lat in range(lat_start, lat_end - 1, -1):
-            for lon in range(lon_start, lon_end + 1, 1):
+        for lat in range(lat_start, lat_end - 1, -1): # Negative step to move downwards from maximum latitude
+            for lon in range(lon_start, lon_end + 1, 1): # Because longitude is already negative, no need for negative step
                 lat_dir = "N" if lat >= 0 else "S"
                 lon_dir = "E" if lon >= 0 else "W"
         

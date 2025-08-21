@@ -29,3 +29,6 @@ Thumbs.db
 
 # To-do file
 todo
+
+# Temporary scripts
+get_planet_tiles.py
