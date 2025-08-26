@@ -547,14 +547,9 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         for tile in planet_tiles:
             p_path = os.path.join(data_folders[7], tile)
             
-            # For testing - remove once all planet images have been created
             if os.path.isfile(p_path) == False:
-                print(f"Tile {tile} doesn't exist, skipping for now.")
-                continue
-            
-            # if os.path.isfile(p_path) == False:
-            #     print("\nError: \"{tile}\" doesn't exist.\n")
-            #     raise InvalidSurvey
+                print(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey
             
             planet_path.append(p_path)
             
@@ -562,15 +557,10 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         building_path = []
         for tile in building_tiles:
             b_path = os.path.join(data_folders[8], tile)
-            
-            # For testing - remove once all planet images have been created
+
             if os.path.isfile(b_path) == False:
-                print(f"Tile {tile} doesn't exist, skipping for now.")
-                continue
-            
-            # if os.path.isfile(b_path) == False:
-            #     print("\nError: \"{tile}\" doesn't exist.\n")
-            #     raise InvalidSurvey
+                print(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey
             
             building_path.append(b_path)
             
