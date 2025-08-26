@@ -49,7 +49,7 @@ print("\n")
 print(f"CALCULATING greenred FOR {os.path.basename(input_chm)} ")
 
 # Preprocess CHM
-chm_cropped_path, _, _, _, _, planet_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
+chm_cropped_path, _, _, _, _, planet_cropped_path, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
     
 # Calculate greenred
 greenred_path = calc_greenred_by_block(planet_cropped_path, temp, mask=False)
