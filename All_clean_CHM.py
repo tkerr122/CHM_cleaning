@@ -709,37 +709,3 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     
     if save_temp == False:
         shutil.rmtree(temp)
-    
-def main(input_folder, output_folder, data_folders, crs, pixel_size):
-    # Create the output folder if it doesn't already exist
-    os.makedirs(output_folder, exist_ok=True)
-    
-    # Loop through input folder
-    for file in os.listdir(input_folder):
-        # Generate i/o filenames
-        input_chm = os.path.join(input_folder, file)
-        output_chm = os.path.splitext(file)[0]
-        output_tiff = f"{os.path.join(output_folder, output_chm)}_cleaned.tif"
-
-        # Clean the CHM
-        if os.path.exists(output_tiff):
-            print(f"CHM {file} already exists, skipping...")
-            continue
-        else:
-            clean_chm(input_chm, data_folders, output_tiff, crs, pixel_size)
-
-if __name__ == "__main__":
-    input_folder = "/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/For_cleaning"
-    output_folder = "/gpfs/glad1/Theo/Data/Lidar/Cleaned_CHMs"
-    data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
-        "/gpfs/glad1/Exch/Andres_2023/by_Theo/USA_planet_2022"]
-    crs = "EPSG:3857"
-    pixel_size = 4.77731426716
-    main(input_folder, output_folder, data_folders, crs, pixel_size)
