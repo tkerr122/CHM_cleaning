@@ -33,3 +33,4 @@ todo
 # Temporary scripts
 get_planet_tiles.py
 test.py
+filter_powerlines.py

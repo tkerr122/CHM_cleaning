@@ -271,21 +271,28 @@ def buffer_powerlines(input_file, output_file, crs, pixel_size, buffer_size, cut
         powerline = powerline.to_crs(crs)
         
         # Crop to cutline
-        cutline = gpd.read_file(cutline)
-        cutline = cutline.to_crs(crs)
-        powerline_cropped = gpd.clip(powerline, cutline)
+        cutline_polygon = gpd.read_file(cutline)
+        cutline_polygon = cutline_polygon.to_crs(crs)
+        powerline_cropped = gpd.clip(powerline, cutline_polygon)
+
+        if powerline_cropped.empty:
+            print(f"The powerlines for {os.path.basename(input_file)} do not exist within the bounds of the study area, creating blank raster...")
+            
+            # Create blank powerlines raster over survey extent
+            rasterize(cutline, output_file, pixel_size, burn_value=0)
         
-        # Buffer to specified radius
-        powerline_buffer = powerline_cropped.buffer(buffer_size, cap_style="square")
-        output_geojson = f"{os.path.splitext(output_file)[0]}.geojson"
-        powerline_buffer.to_file(output_geojson, driver="GeoJSON")
+        else:
+            # Buffer to specified radius
+            powerline_buffer = powerline_cropped.buffer(buffer_size, cap_style="square")
+            powerline_geojson = f"{os.path.splitext(output_file)[0]}.geojson"
+            powerline_buffer.to_file(powerline_geojson, driver="GeoJSON")
+            
+            # Rasterize the buffer
+            rasterize(powerline_geojson, output_file, pixel_size, burn_value)
         
-        # Rasterize the buffer
-        rasterize(output_geojson, output_file, pixel_size, burn_value)
-    
-        # Remove temporary geojson buffer
-        os.remove(output_geojson)
-        
+            # Remove temporary geojson buffer
+            os.remove(powerline_geojson)
+            
     else:
         print(f"\"{os.path.basename(output_file)}\" exists, not buffering")
 
