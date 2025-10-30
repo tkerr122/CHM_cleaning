@@ -162,8 +162,7 @@ def extract_polygon(input_shp, survey, output_folder):
     polygon_basename = os.path.splitext(os.path.basename(input_shp))[0]
     path = os.path.join(output_folder, f"{polygon_basename}_{survey}.geojson")
     if polygon.empty:
-        print(f"\nThe survey name \"{survey}\" is incorrect or doesn't exist\n")
-        raise InvalidSurvey(survey)
+        raise InvalidSurvey(f"\nThe survey name \"{survey}\" is incorrect or doesn't exist\n")
     
     # Write canopy geojson to file, if it hasn't already been done
     if os.path.isfile(path) == False:
@@ -522,8 +521,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Powerlines
         powerlines_path = os.path.join(data_folders[1], f"{state}_powerlines.geojson")
         if os.path.isfile(powerlines_path) == False:
-            print(f"\nError: \"{state}_powerlines.geojson\" doesn't exist.\n")
-            raise InvalidSurvey
+            raise InvalidSurvey(f"\nError: \"{state}_powerlines.geojson\" doesn't exist.\n")
         
         output_powerlines = os.path.join(temp, f"{state}_powerlines_buffer.tif")
         buffer_powerlines(powerlines_path, output_powerlines, crs, pixel_size, buffer_size, cutline)
@@ -532,8 +530,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         if man_pwl == True:
             man_pwl_path = os.path.join(data_folders[2], f"{state}_man_pwl.geojson")
             if os.path.isfile(man_pwl_path) == False:
-                print(f"\nError: Manual powerline file \"{state}_man_pwl.geojson\" doesn't exist.\n")
-                raise InvalidSurvey
+                raise InvalidSurvey(f"\nError: Manual powerline file \"{state}_man_pwl.geojson\" doesn't exist.\n")
             
             output_man_pwl = os.path.join(temp, f"{state}_man_pwl_buffer.tif")
             buffer_powerlines(man_pwl_path, output_man_pwl, crs, pixel_size, buffer_size, cutline)
@@ -544,8 +541,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             wc_path = os.path.join(data_folders[6], tile)
             
             if os.path.isfile(wc_path) == False:
-                print(f"\nError: \"{tile}\" doesn't exist.\n")
-                raise InvalidSurvey
+                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
             
             worldcover_path.append(wc_path)
         
@@ -555,8 +551,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             p_path = os.path.join(data_folders[7], tile)
             
             if os.path.isfile(p_path) == False:
-                print(f"\nError: \"{tile}\" doesn't exist.\n")
-                raise InvalidSurvey
+                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
             
             planet_path.append(p_path)
             
@@ -566,8 +561,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             b_path = os.path.join(data_folders[8], tile)
 
             if os.path.isfile(b_path) == False:
-                print(f"\nError: \"{tile}\" doesn't exist.\n")
-                raise InvalidSurvey
+                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
             
             building_path.append(b_path)
             
