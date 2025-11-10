@@ -412,7 +412,7 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     """Uses array indexing to compute greenred by block for a given Planet image using the calc_greenred function.
     
     Args:
-        input_image_path (str): path to landsat image raster.
+        input_image_path (str): path to planet image raster.
         output_folder (str): path to desired output folder.
         threshold_value (int, optional): 8-bit scaled greenred threshold value. Defaults to None.
         mask (bool, optional): whether to create an greenred mask based on given threshold value. Defaults to True.
@@ -420,10 +420,10 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     Returns:
         str: path to output greenred raster.
     """
-    # Read in landsat image
-    landsat_image, xsize, ysize, geotransform, srs = get_raster_info(input_image_path)
-    green = landsat_image.GetRasterBand(2)
-    red = landsat_image.GetRasterBand(1)
+    # Read in planet image
+    planet_image, xsize, ysize, geotransform, srs = get_raster_info(input_image_path)
+    green = planet_image.GetRasterBand(2)
+    red = planet_image.GetRasterBand(1)
     
     # Set block size
     x_block_size = 256
@@ -444,9 +444,9 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
     progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block")
     
-    for y in range(0, ysize, y_block_size):
+    for y in range(0, ysize + 1, y_block_size):
         rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
-        for x in range(0, xsize, x_block_size):
+        for x in range(0, xsize + 1, x_block_size):
             cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
             calc_greenred(green, red, output_band, x, y, cols, rows, threshold_value, mask)
             progress_bar.update(1)
@@ -454,7 +454,7 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     progress_bar.close()
     output_band = None
     output = None
-    landsat_image = None
+    planet_image = None
     
     return output_path
 
@@ -487,7 +487,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     Args:
         input_chm (str): path to input chm.
         temp (str): path to temp directory.
-        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, manual powerline masks, water images, landsat images, and slope errors shapefile.
+        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, manual powerline masks, slope errors, WorldCover images, Planet images, and building masks.
         crs (str): string for the desired CRS, in the format "EPSG:3857" for example.
         pixel_size (float): desired pixel size for reprojection, in destination crs units.
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.
@@ -498,7 +498,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         InvalidSurvey: depending on the condition, prints message stating how the input survey is invalid.
 
     Returns:
-        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, water_cropped_path, landsat_cropped_path, man_pwl_cropped_path, and man_slp_cropped_path.              
+        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, and building_cropped_path        
     """
     # Check if temp folder is already populated
     if os.path.isdir(temp) == False:
@@ -538,7 +538,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Worldcover images
         worldcover_path = []
         for tile in wc_tiles:
-            wc_path = os.path.join(data_folders[6], tile)
+            wc_path = os.path.join(data_folders[4], tile)
             
             if os.path.isfile(wc_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
@@ -548,7 +548,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Planet images
         planet_path = []
         for tile in planet_tiles:
-            p_path = os.path.join(data_folders[7], tile)
+            p_path = os.path.join(data_folders[5], tile)
             
             if os.path.isfile(p_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
@@ -558,7 +558,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Building model tiles
         building_path = []
         for tile in building_tiles:
-            b_path = os.path.join(data_folders[8], tile)
+            b_path = os.path.join(data_folders[6], tile)
 
             if os.path.isfile(b_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
@@ -572,7 +572,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     # If manual slope mask is specified, rasterize this as another mask layer
     if man_slp == True:
         # Extract slope errors for current survey
-        slope_errors = extract_polygon(data_folders[5], survey, temp)
+        slope_errors = extract_polygon(data_folders[3], survey, temp)
         
         # Rasterize the slope errors
         slope_mask_path = os.path.join(temp, f"slope_mask_{survey}.tif")
@@ -612,7 +612,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     Args:
         input_chm (str): path to input CHM.
         output_tiff (str): path to output raster.
-        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, water masks, and landsat images, respectively
+        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, slope errors, WorldCover, Planet tiles, and building masks, respectively
         crs (str): string for the desired CRS, in the format "EPSG:3857" for example.
         pixel_size (float): desired pixel size for reprojection, in destination crs units.
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.

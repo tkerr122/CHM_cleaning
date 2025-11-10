@@ -35,12 +35,11 @@ output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
 data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Water", 
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Landsat", 
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-    "/gpfs/glad1/Exch/Andres_2023/by_Theo/RGB_planet/global_monthly_2022_06_mosaic",
+    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
     "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Building_mask_2022"]
+
 crs = "EPSG:3857"
 pixel_size = 4.77731426716
 temp = os.path.join(output_folder, "temp")
