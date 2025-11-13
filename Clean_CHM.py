@@ -25,49 +25,52 @@ Assumes the following input variables are hardcoded:
  - crs
  - pixel_size
 """
+def main():
+    # Create argument parser
+    parser = argparse.ArgumentParser(description="Script for cleaning single CHM")
+    parser.add_argument("-s", "--survey", type=str, help="Survey name", required=True)
+    parser.add_argument("-bs", "--buffer-size", type=int, default=50, help="Buffer size")
+    parser.add_argument("-st", "--save-temp", action="store_true", help="Save temp dir")
+    parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual powerlines")
+    parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
+    parser.add_argument("-ht", "--height-threshold", type=int, help="Mask slope using height threshold")
+    parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 100], help="List of WorldCover mask values")
+    parser.add_argument("-grt", "--greenred-threshold", type=int, default=135, help="Cutoff for greenred")
+    parser.add_argument("-bt", "--building-threshold", type=int, default=30, help="Cutoff for building mask")
 
-# Create argument parser
-parser = argparse.ArgumentParser(description="Script for cleaning single CHM")
-parser.add_argument("-s", "--survey", type=str, help="Survey name", required=True)
-parser.add_argument("-bs", "--buffer-size", type=int, default=50, help="Buffer size")
-parser.add_argument("-st", "--save-temp", action="store_true", help="Save temp dir")
-parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual powerlines")
-parser.add_argument("-ms", "--man-slp", action="store_true", help="Mask with manual slope")
-parser.add_argument("-ht", "--height-threshold", type=int, help="Mask slope using height threshold")
-parser.add_argument("-wcmv", "--wc-mask-values", nargs='+', type=int, default=[30, 60, 70, 100], help="List of WorldCover mask values")
-parser.add_argument("-grt", "--greenred-threshold", type=int, default=135, help="Cutoff for greenred")
-parser.add_argument("-bt", "--building-threshold", type=int, default=30, help="Cutoff for building mask")
+    # Parse arguments
+    args = parser.parse_args()
 
-# Parse arguments
-args = parser.parse_args()
+    # Set up variables
+    survey = args.survey
+    buffer_size = args.buffer_size
+    save_temp = args.save_temp
+    man_pwl = args.man_pwl
+    man_slp = args.man_slp
+    height_threshold = args.height_threshold
+    wc_mask_values = args.wc_mask_values
+    greenred_threshold = args.greenred_threshold
+    building_threshold = args.building_threshold
 
-# Set up variables
-survey = args.survey
-buffer_size = args.buffer_size
-save_temp = args.save_temp
-man_pwl = args.man_pwl
-man_slp = args.man_slp
-height_threshold = args.height_threshold
-wc_mask_values = args.wc_mask_values
-greenred_threshold = args.greenred_threshold
-building_threshold = args.building_threshold
+    input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
+    output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
+    data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Building_mask_2022"]
+    crs = "EPSG:3857"
+    pixel_size = 4.77731426716
 
-input_chm = f"/gpfs/glad1/Theo/Data/Lidar/CHMs_raw/1_Combined_CHMs/{survey}_CHM.tif"
-output_folder = f"/gpfs/glad1/Theo/Data/Lidar/CHM_testing/{survey}"
-data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
-    "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Building_mask_2022"]
-crs = "EPSG:3857"
-pixel_size = 4.77731426716
+    if man_slp == True:
+        output_tiff = os.path.join(output_folder, f"test_slope_{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
+    else:
+        output_tiff = os.path.join(output_folder, f"{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
 
-if man_slp == True:
-    output_tiff = os.path.join(output_folder, f"test_slope_{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
-else:
-    output_tiff = os.path.join(output_folder, f"{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
+    # Clean the CHM
+    clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, height_threshold, wc_mask_values, greenred_threshold, building_threshold)
 
-# Clean the CHM
-clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, man_slp, height_threshold, wc_mask_values, greenred_threshold, building_threshold)
+if __name__ == "__main__":
+    main()
