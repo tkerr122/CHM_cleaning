@@ -29,8 +29,9 @@ def get_chm_survey(chm_path):
     
     return survey_name, state 
 
-def get_chm_loc(chm):
-    """Takes given raster dataset and finds which WorldCover and Planet tiles it intersects with, returns a list of the tiles. Planet_tile_list.csv is a hardcoded path.
+def get_chm_loc(chm_path):
+    """Takes given raster dataset and finds which WorldCover and Planet tiles it intersects with, returns a list of the tiles. 
+    Planet_tiles_path is a hardcoded path.
 
     Args:
         chm (GDAL raster): CHM raster.
@@ -39,9 +40,12 @@ def get_chm_loc(chm):
         tuple: tuple containing World Cover tiles, and planet tiles
     """
     # Get CHM geotransform info
+    chm = gdal.Open(chm_path)
     gt = chm.GetGeoTransform()
     xsize = chm.RasterXSize
     ysize = chm.RasterYSize
+    
+    chm = None
     
     x_left = gt[0]
     y_top = gt[3]
@@ -82,8 +86,8 @@ def get_chm_loc(chm):
         
         return wc_names
     
-    # Extract planet tiles
-    def get_planet_tile_name(lat_min, lat_max, lon_min, lon_max):
+    # Extract degree tile names
+    def get_deg_tile_name(lat_min, lat_max, lon_min, lon_max):
         tile_names = []
         
         # Planet tiles have 1 degree step, starting in Northwest corner
@@ -101,27 +105,40 @@ def get_chm_loc(chm):
                 lat_str = f"{abs(lat):02d}{lat_dir}"
                 lon_str = f"{abs(lon):03d}{lon_dir}"
                 
-                tile_name = f"{lon_str}_{lat_str}"
+                tile_name = f"{lon_str}_{lat_str}.tif"
                 tile_names.append(tile_name)
         
-        planet_tiles = pd.read_csv("/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tile_list/Planet_tile_list.csv")
-        planet_tiles = planet_tiles[planet_tiles['TILE'].isin(tile_names)]
-        
-        planet_tile_names = planet_tiles['location'].tolist()
-        planet_tile_names = [f"L15-{name}.tif" for name in planet_tile_names]
-        
-        deg_tile_names = [f"{tile}.tif" for tile in tile_names]
-        
-        return deg_tile_names, planet_tile_names
+        return tile_names
     
+    # Extract planet tile names
+    def get_planet_tiles(chm_path, planet_tiles_path):
+        # Get raster info
+        ds = gdal.Open(chm_path)
+        projection = ds.GetSpatialRef().ExportToWkt()
+        
+        # Get raster footprint
+        footprint = gdal.Footprint(None, chm_path, format="WKT", dstSRS=projection)
+        
+        # Intersect the footprint and planet tiles
+        translate_options = gdal.VectorTranslateOptions(format="Memory", clipSrc=footprint, selectFields=["location"])
+        tiles_mem = gdal.VectorTranslate("", planet_tiles_path, options=translate_options)
+        
+        # Return the tiles
+        tiles_layer = tiles_mem.GetLayer(0)
+        tiles = [f"L15-{tile['location']}.tif" for tile in tiles_layer]
+        
+        return tiles
+
     wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
     wc_tiles = sorted(set(wc_tiles))
     
-    deg_tiles, planet_tiles = get_planet_tile_name(lat_min, lat_max, lon_min, lon_max)
+    deg_tiles = get_deg_tile_name(lat_min, lat_max, lon_min, lon_max)
     deg_tiles = sorted(set(deg_tiles))
+    
+    planet_tiles = get_planet_tiles(chm_path, planet_tiles_path="/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp")
     planet_tiles = sorted(set(planet_tiles))
         
-    return wc_tiles, planet_tiles, deg_tiles
+    return wc_tiles, deg_tiles, planet_tiles
 
 def get_raster_info(raster_path):
     """Opens a raster at the given path.
@@ -505,13 +522,10 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         os.makedirs(temp, exist_ok=True)
     
     # Read in CHM and get info
-    chm = gdal.Open(input_chm)
     survey, state = get_chm_survey(input_chm)
-    wc_tiles, planet_tiles, building_tiles = get_chm_loc(chm)
+    wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm)
 
     print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
-    
-    chm = None
     
     # Generate paths to corresponding mask layers and preprocess
     try:
