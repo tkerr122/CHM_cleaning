@@ -26,7 +26,7 @@ Dataset sources:
 - Power line dataset: https://overpass-turbo.eu/
 
 Dataset info:
-- Labels for worldcover:
+- Labels for worldcover:  
     10 Trees covered area  
     20 Shrub covered area  
     30 Grassland  
