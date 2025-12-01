@@ -25,6 +25,7 @@ Assumes the following input variables are hardcoded:
  - crs
  - pixel_size
 """
+
 def main():
     # Create argument parser
     parser = argparse.ArgumentParser(description="Script for cleaning single CHM")
