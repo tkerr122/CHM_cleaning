@@ -203,10 +203,10 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
         str: path to output warped raster.
     """
     # Set warp options
-    if type(raster_path) == list and len(raster_path) != 1:
+    if isinstance(raster_path, list) and len(raster_path) != 1:
         raster_basename = os.path.splitext(os.path.basename(raster_path[0]))[0]
         dst_ds = f"{os.path.join(output_folder, raster_basename)}_cropped_merged.tif"
-    elif type(raster_path) == list and len(raster_path) == 1:
+    elif isinstance(raster_path, list) and len(raster_path) == 1:
         raster_basename = os.path.splitext(os.path.basename(raster_path[0]))[0]
         dst_ds = f"{os.path.join(output_folder, raster_basename)}_cropped.tif"
     else: 

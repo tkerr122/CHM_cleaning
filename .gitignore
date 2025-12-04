@@ -33,3 +33,6 @@ todo
 # Temporary scripts
 test.py
 filter_powerlines.py
+
+# Gitignore
+.gitignore
