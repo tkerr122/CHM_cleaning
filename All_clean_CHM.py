@@ -638,7 +638,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         building_threshold (int, optional): probability value for the building threshold, below which pixels will be masked for building masking. Defaults to 30.        
     """
     # Start message
-    print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(100, "*"))
+    columns = shutil.get_terminal_size().columns
+    print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(columns, "="))
     
     # Set up temp directory for intermediate files
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
@@ -714,7 +715,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     # Write cleaned CHM to new raster
     output_band.WriteArray(chm_cleaned)
     print(f"Cleaned CHM written to {output_tiff}")
-    print(f" FINISHED PROCESSING CHM {os.path.basename(input_chm)}".center(100, "*"))
+    print(f" FINISHED PROCESSING CHM {os.path.basename(input_chm)}".center(columns, "="))
     print("\n")
     
     chm_cleaned = None
