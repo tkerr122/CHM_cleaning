@@ -216,7 +216,15 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
     # Crop the raster, if it hasn't already been done
     if os.path.isfile(dst_ds) == False:
         print(f"Cropping {os.path.basename(dst_ds)}:")
-        gdal.Warp(dst_ds, raster_path, format="GTiff", dstSRS=crs, xRes=pixel_size, yRes=pixel_size, cutlineDSName=cutline, cropToCutline=True, warpOptions=["COMPRESS=LZW", "BIGTIFF=YES"], callback=gdal.TermProgress_nocb)
+        warp_options = gdal.WarpOptions(format="GTiff", 
+                                        dstSRS=crs, 
+                                        xRes=pixel_size, 
+                                        yRes=pixel_size, 
+                                        cutlineDSName=cutline, 
+                                        cropToCutline=True, 
+                                        warpOptions=["COMPRESS=LZW", "BIGTIFF=YES"], 
+                                        callback=gdal.TermProgress_nocb)
+        gdal.Warp(dst_ds, raster_path, options=warp_options)
     else:
         print(f"\"{os.path.basename(dst_ds)}\" exists, saving path...")
         
@@ -344,46 +352,6 @@ def mask_water(chm_array, water_array):
     
     return chm_cleaned
 
-def mask_worldcover(chm_array, height_threshold, wc_array, wc_mask_values, slope_array=None):
-    """Takes in an array for the CHM and worldcover, and depending on user input uses either a height threshold value to mask the entire CHM of slope errors, or uses a slope array for masking those areas, using the WorldCover mask values.
-
-    Args:
-        chm_array (np.array): array for the CHM.
-        height_threshold (int): height value above which to use for masking.
-        wc_array (np.array): array for the worldcover image.
-        wc_mask_values (list): list of land cover types to retain as "True" for the wc mask.
-        slope_array (np.array, optional): array for the manual slope errors file.
-
-    Returns:
-        np.array: cleaned CHM array
-    """
-    # If slope array is provided, use that for masking
-    if slope_array is not None:
-        # Set areas designated as ground to 0
-        ground_mask = (slope_array == 0)
-        chm_array = np.where(ground_mask, 0, chm_array)
-        
-        # Mask using worldcover
-        wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
-        wc_mask[wc_mask == 0] = 255
-        wc_mask[wc_mask == 1] = 1
-        condition_mask = (wc_mask == 1) & (slope_array == 1)
-        chm_cleaned = np.where(condition_mask, 0, chm_array)
-        chm_cleaned[chm_array == 255] = 255
-    
-    else:
-        # Mask CHM above height threshold using worldcover
-        wc_mask = np.isin(wc_array, wc_mask_values).astype(int)
-        wc_mask[wc_mask == 0] = 255
-        wc_mask[wc_mask == 1] = 1
-        condition_mask = (wc_mask == 1) & (chm_array > height_threshold)
-        chm_cleaned = np.where(condition_mask, 0, chm_array)
-        chm_cleaned[chm_array == 255] = 255
-
-    print("Cleaned CHM slope errors using WorldCover...")
-    
-    return chm_cleaned
-
 def calc_greenred(green_band, red_band, output_band, x, y, cols, rows, threshold_value, mask): 
     """Takes in green and red bands from an image raster, a desired greenred threshold value (on 8-bit scale), and the position/size of the image raster.
     Calculates greenred ratio for that position in the image, and if mask == True, thresholds it to the specified value and writes the mask array to the specified band.
@@ -475,7 +443,8 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     return output_path
 
 def mask_buildings(chm_array, greenred_array, building_array, building_threshold):
-    """Takes in an array for the CHM and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a building array for masking those areas, using the greenred mask.
+    """Takes in an array for the CHM, the building mask, and the greenred mask, and depending on user input either masks the entire CHM for buildings, or uses a building array for masking those areas, 
+    using the greenred mask.
 
     Args:
         chm_array (np.array): array for the CHM.
@@ -495,26 +464,50 @@ def mask_buildings(chm_array, greenred_array, building_array, building_threshold
     
     return chm_cleaned
 
-def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, man_pwl=False, man_slp=False):
+def mask_slope(chm_array, slope_array, greenred_array, slope_threshold):
+    """Takes in an array for the CHM, slope mask, and greenred mask, and masks the entire CHM of slope errors
+
+    Args:
+        chm_array (np.array): array for the CHM
+        slope_array (np.array): array for the slope mask
+        greenred_array (np.array): array for the greenred mask
+        slope_threshold (int): threshold value for the slope array
+
+    Returns:
+        np.array: cleaned CHM array
+    """
+    # Use slope and greenred to mask slope errors
+    # condition_mask = (greenred_array == 1) & (slope_array >= slope_threshold)
+    condition_mask = (slope_array >= slope_threshold)
+    chm_cleaned = np.where(condition_mask, 0, chm_array)
+    chm_cleaned[chm_array == 255] = 255
+    
+    print("Cleaned slope errors...")
+    
+    return chm_cleaned
+
+def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size=50, man_pwl=False, slope_threshold=None):
     """Creates a temporary folder for all intermediate data layers and performs preprocessing on them such as buffering, cropping, and generating file paths as specified.
     If the temp folder already exists, will just return the filenames of the previously created layers. 
-    IMPORTANT: if performing multiple iterations of CHM cleaning, keep in mind that persisting the temp folder also persists the layers, so for example the powerline buffer raster will be read in as is, it will not be re-buffered. 
+    IMPORTANT: if performing multiple iterations of CHM cleaning, keep in mind that persisting the temp folder also persists the layers, so for example the powerline buffer raster will
+    be read in as is, it will not be re-buffered. 
 
     Args:
         input_chm (str): path to input chm.
         temp (str): path to temp directory.
-        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, manual powerline masks, slope errors, WorldCover images, Planet images, and building masks.
+        data_folders (list): list of paths to the relevant data folders for the canopy shapefile, powerline masks, manual powerline masks, slope errors, WorldCover images, Planet images, 
+        and building masks.
         crs (str): string for the desired CRS, in the format "EPSG:3857" for example.
         pixel_size (float): desired pixel size for reprojection, in destination crs units.
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
-        man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
+        slope_threshold (int, optional): desired slope threshold for masking, in degrees. If not None, use slope raster for masking. Defaults to None 
 
     Raises:
         InvalidSurvey: depending on the condition, prints message stating how the input survey is invalid.
 
     Returns:
-        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, and building_cropped_path        
+        tuple: tuple containing chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, slope_cropped_path, worldcover_cropped_path, planet_cropped_path, and building_cropped_path        
     """
     # Check if temp folder is already populated
     if os.path.isdir(temp) == False:
@@ -551,7 +544,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Worldcover images
         worldcover_path = []
         for tile in wc_tiles:
-            wc_path = os.path.join(data_folders[4], tile)
+            wc_path = os.path.join(data_folders[3], tile)
             
             if os.path.isfile(wc_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
@@ -561,7 +554,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Planet images
         planet_path = []
         for tile in planet_tiles:
-            p_path = os.path.join(data_folders[5], tile)
+            p_path = os.path.join(data_folders[4], tile)
             
             if os.path.isfile(p_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
@@ -571,25 +564,23 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         # Building model tiles
         building_path = []
         for tile in building_tiles:
-            b_path = os.path.join(data_folders[6], tile)
+            b_path = os.path.join(data_folders[5], tile)
 
             if os.path.isfile(b_path) == False:
                 raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
             
             building_path.append(b_path)
-            
-    except InvalidSurvey:
-        shutil.rmtree(temp)
-        exit()
-
-    # If manual slope mask is specified, rasterize this as another mask layer
-    if man_slp == True:
-        # Extract slope errors for current survey
-        slope_errors = extract_polygon(data_folders[3], survey, temp)
         
-        # Rasterize the slope errors
-        slope_mask_path = os.path.join(temp, f"slope_mask_{survey}.tif")
-        rasterize(slope_errors, slope_mask_path, pixel_size)
+        # Slope raster
+        if slope_threshold:
+            slope_path = os.path.join(data_folders[6], f"{survey}_slope.tif")
+            if os.path.isfile(slope_path) == False: 
+                raise InvalidSurvey(f"\nError: Slope raster file \"{survey}_slope.tif\" doesn't exist.\n")
+            
+    except InvalidSurvey as e:
+        print(e)
+        shutil.rmtree(temp)
+        exit()    
         
     # Crop the rasters to the extent of the canopy mask layer
     chm_cropped_path = crop_raster(input_chm, temp, crs, pixel_size, cutline)
@@ -599,18 +590,18 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     building_cropped_path = crop_raster(building_path, temp, crs, pixel_size, cutline)
     if man_pwl == True:
         man_pwl_cropped_path = crop_raster(output_man_pwl, temp, crs, pixel_size, cutline)
-    if man_slp == True: 
-        man_slp_cropped_path = crop_raster(slope_mask_path, temp, crs, pixel_size, cutline)
+    if slope_threshold: 
+        slope_cropped_path = crop_raster(slope_path, temp, crs, pixel_size, cutline)
                 
     # Return the filepaths
     if "man_pwl_cropped_path" not in locals():
         man_pwl_cropped_path = None
-    if "man_slp_cropped_path" not in locals():
-        man_slp_cropped_path = None
+    if "slope_cropped_path" not in locals():
+        slope_cropped_path = None
         
-    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path
+    return chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, slope_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path
 
-def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, man_slp=False, height_threshold=None, wc_mask_values=[30, 60, 70, 100], gr_threshold=135, building_threshold=30):
+def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size=50, save_temp=False, man_pwl=False, gr_threshold=135, building_threshold=30, slope_threshold=None):
     """CHM cleaning workflow using all the previously defined functions. Users can specify the desired powerline buffer, whether to save the temporary output rasters, use manual powerline and slope layers for masking, desired thresholds if they do mask slope, a list of pixel values to retain for worldcover masking, and a threshold for greenred building masking.
     Steps:
     1. Gets raster information for the CHM.
@@ -619,7 +610,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     4. Sets up blank output raster.
     5. Masks powerlines, buildings, water, and slope (if speficied).
         - If man_pwl == True, will also buffer and mask the CHM to the manual powerlines file.
-        - If man_slp == True, will mask slope across extent of manual slope errors shapefile using WorldCover dataset
+        - If slope_threshold is not None, will mask slope across extent of CHM using greenred and slope raster
     6. Writes the new raster (and deletes the temp files, if specified).
 
     Args:
@@ -631,11 +622,9 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         buffer_size (int, optional): desired buffer size for powerlines, in meters. Defaults to 50.
         save_temp (bool, optional): whether or not to save the temp rasters. Defaults to False.
         man_pwl (bool, optional): whether or not to use a manual powerline file for additional powerline masking. Defaults to False.
-        man_slp (bool, optional): whether or not to use a manual slope errors shapefile for slope masking. Defaults to False. 
-        height_threshold (int, optional): height threshold above which pixels will be considered for slope masking. Defaults to None.
-        wc_mask_values (list, optional): list of pixel values to use for masking. Defaults to [30, 60, 70, 100]
         gr_threshold (int, optional): greenred threshold below which pixels will be masked for building masking. Defaults to 135.
         building_threshold (int, optional): probability value for the building threshold, below which pixels will be masked for building masking. Defaults to 30.        
+        slope_threshold(int, optional): desired slope threshold for masking, in degrees. If not None, use slope raster for masking. Defaults to None 
     """
     # Start message
     columns = shutil.get_terminal_size().columns
@@ -645,7 +634,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
     
     # Preprocess the data layers
-    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, man_slp_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, man_slp)
+    chm_cropped_path, powerlines_cropped_path, man_pwl_cropped_path, slope_cropped_path, worldcover_cropped_path, planet_cropped_path, building_cropped_path = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffer_size, man_pwl, slope_threshold)
                 
     # Create output blank raster
     chm_cropped, c_xsize, c_ysize, c_geotransform, c_srs = get_raster_info(chm_cropped_path)
@@ -684,34 +673,30 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     building_8bit = building_cropped.GetRasterBand(1).ReadAsArray(0, 0, b_xsize, b_ysize).astype(np.uint8)
     chm_cleaned = mask_buildings(chm_cleaned, greenred_8bit, building_8bit, building_threshold)
     
-    greenred_cropped = None
-    greenred_8bit = None
     building_cropped = None
     building_8bit = None
     
+    # Mask CHM by slope (if specified)
+    if slope_threshold:
+        slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(slope_cropped_path)
+        slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
+                    
+        chm_cleaned = mask_slope(chm_cleaned, slope_8bit, greenred_8bit, slope_threshold)
+        
+        slope_cropped = None
+        slope_8bit = None
+        
+    greenred_cropped = None
+    greenred_8bit = None
+        
     # Mask CHM by water
     wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
     wc_8bit = wc_cropped.GetRasterBand(1).ReadAsArray(0, 0, wc_xsize, wc_ysize).astype(np.uint8)
     chm_cleaned = mask_water(chm_cleaned, wc_8bit)
     
-    # Mask CHM by slope (if specified)
-    if height_threshold is not None:
-        # Use worldcover and height threshold to mask slope
-        chm_cleaned = mask_worldcover(chm_cleaned, height_threshold, wc_8bit, wc_mask_values)
-    
-    elif man_slp == True:
-        # Read in manual slope mask raster (if specified), use with worldcover to clean slope
-        slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(man_slp_cropped_path)
-        slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
-                    
-        chm_cleaned = mask_worldcover(chm_cleaned, height_threshold, wc_8bit, wc_mask_values, slope_8bit)
-        
-        slope_cropped = None
-        slope_8bit = None
-        
     wc_cropped = None
     wc_8bit = None
-        
+    
     # Write cleaned CHM to new raster
     output_band.WriteArray(chm_cleaned)
     print(f"Cleaned CHM written to {output_tiff}")

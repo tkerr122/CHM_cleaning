@@ -36,10 +36,10 @@ def main():
     data_folders = ["/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Canopy/Canopy.shp", 
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Powerlines", 
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Manual_powerlines", 
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope_errors/Slope_errors.shp",
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/WorldCover",
         "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Planet_tiles",
-        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Building_mask_2022"]
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Building_mask_2022",
+        "/gpfs/glad1/Theo/Data/Lidar/CHM_cleaning/Slope"]
 
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
