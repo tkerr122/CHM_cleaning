@@ -8,15 +8,14 @@ gdal.UseExceptions()
 
 """I have written this script to be a command-line utility for cleaning a CHM of powerlines, water, 
 and ifdesired, slope errors, using specific values for height and NDVI thresholds. 
-================================================
+====================================================================================================
 -s option: survey name.
 -bs option: desired buffer size for powerlines, in meters. Defaults to 50.
 -st option: whether or not to save the temp rasters.
 -mp option: whether or not to use a manual powerline file for additional powerline masking.
--ms option: whether or not to use a manual slope errors shapefile for slope masking.
--ht option: value to use for CHM-wide slope masking using worldcover
--wcmv option: list of pixel values from worldcover image for masking
+-slp option: whether or not to use a manual slope errors shapefile for slope masking.
 -grt option: threshold for greenred masking
+-bt option: threshold for building masking
 
 Assumes the following input variables are hardcoded:
  - input_chm
@@ -33,7 +32,7 @@ def main():
     parser.add_argument("-bs", "--buffer-size", type=int, default=50, help="Buffer size")
     parser.add_argument("-st", "--save-temp", action="store_true", help="Save temp dir")
     parser.add_argument("-mp", "--man-pwl", action="store_true", help="Buffer manual powerlines")
-    parser.add_argument("-slp", "--slope-threshold", action="store_true", help="Mask with manual slope")
+    parser.add_argument("-slp", "--slope-threshold", type=int, default=None, help="Cutoff for slope")
     parser.add_argument("-grt", "--greenred-threshold", type=int, default=135, help="Cutoff for greenred")
     parser.add_argument("-bt", "--building-threshold", type=int, default=30, help="Cutoff for building mask")
 
@@ -61,10 +60,10 @@ def main():
     crs = "EPSG:3857"
     pixel_size = 4.77731426716
 
-    if slope_threshold == True:
-        output_tiff = os.path.join(output_folder, f"test_slope_{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
+    if slope_threshold:
+        output_tiff = os.path.join(output_folder, f"{slope_threshold}slp_{survey}CHM_cleaned.tif")
     else:
-        output_tiff = os.path.join(output_folder, f"{greenred_threshold}gr_{survey}_CHM_cleaned.tif")
+        output_tiff = os.path.join(output_folder, f"{survey}_CHM_cleaned.tif")
 
     # Clean the CHM
     clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, slope_threshold, greenred_threshold, building_threshold)

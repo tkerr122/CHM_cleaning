@@ -426,7 +426,7 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     
     # Mask greenred
     total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
-    progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block")
+    progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block", leave=False)
     
     for y in range(0, ysize + 1, y_block_size):
         rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
@@ -628,7 +628,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     """
     # Start message
     columns = shutil.get_terminal_size().columns
-    print(f" PROCESSING CHM {os.path.basename(input_chm)} ".center(columns, "="))
+    print("=".center(columns, "="))
+    print(f"PROCESSING CHM {os.path.basename(input_chm)}\n")
     
     # Set up temp directory for intermediate files
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
@@ -699,9 +700,6 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     
     # Write cleaned CHM to new raster
     output_band.WriteArray(chm_cleaned)
-    print(f"Cleaned CHM written to {output_tiff}")
-    print(f" FINISHED PROCESSING CHM {os.path.basename(input_chm)}".center(columns, "="))
-    print("\n")
     
     chm_cleaned = None
     output_band = None
@@ -709,3 +707,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     
     if save_temp == False:
         shutil.rmtree(temp)
+ 
+    print()
+    print(f"Cleaned CHM written to {output_tiff}")
+    print("=".center(columns, "="))
