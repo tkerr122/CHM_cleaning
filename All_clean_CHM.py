@@ -230,47 +230,25 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
         
     return dst_ds
 
-def rasterize(input_file, output_tiff, pixel_size, burn_value=None):
-    """Uses the GDAL Rasterize Layer function to rasterize the given vector layer to the output tiff path, with the given pixel size. If a burn value is not specified, 
-	the polygon value attribute is used.
+def rasterize(input_file, output_tiff, pixel_size, burn_value=1):
+    """Uses the GDAL Rasterize function to rasterize the given vector layer to the output tiff path, with the given pixel size.
 
     Args:
         input_file (str): path to vector dataset.
         output_tiff (str): path to output raster dataset.
         pixel_size (float): desired pixel size.
-        burn_value (int, optional): desired output pixel value. Defaults to 1.
+        burn_value (int): desired output pixel value. Defaults to 1.
     """
     # Check if file exists
     if os.path.isfile(output_tiff) == False:
-        # Open dataset
-        dataset = ogr.Open(input_file)
-        layer = dataset.GetLayer() 
-        
-        # Define raster properties
-        x_min, x_max, y_min, y_max = layer.GetExtent()
-        x_res = int((x_max - x_min) / pixel_size)
-        y_res = int((y_max - y_min) / pixel_size)
-        target_ds = gdal.GetDriverByName("GTiff").Create(output_tiff, x_res, y_res, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES"])
-        target_ds.SetGeoTransform((x_min, pixel_size, 0, y_max, 0, -pixel_size))
-        
-        # Set projection
-        srs = layer.GetSpatialRef()
-        target_ds.SetProjection(srs.ExportToWkt())
-        
-        # Set band nodata value
-        band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(255)
-
         # Rasterize dataset
         print(f"Rasterizing {os.path.basename(input_file)}:")
-        if burn_value is not None:
-            gdal.RasterizeLayer(target_ds, [1], layer, burn_values=[burn_value], callback=gdal.TermProgress_nocb)
-        else:
-            gdal.RasterizeLayer(target_ds, [1], layer, options=["ATTRIBUTE=value"], callback=gdal.TermProgress_nocb)
-      
-        band = None
-        target_ds = None
-        dataset = None
+        rasterize_options = gdal.RasterizeOptions(format="GTiff",
+                                                  burnValues=burn_value,
+                                                  xRes=pixel_size,
+                                                  yRes=pixel_size,
+                                                  callback=gdal.TermProgress_nocb)
+        gdal.Rasterize(output_tiff, input_file, options=rasterize_options)
         
     else:
         print(f"\"{os.path.basename(output_tiff)}\" exists, not rasterizing")
