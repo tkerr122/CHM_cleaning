@@ -4,7 +4,7 @@
 # Imports/env settings 
 import numpy as np
 import geopandas as gpd
-from osgeo import gdal, osr, ogr
+from osgeo import gdal, osr
 from tqdm import tqdm
 import os, shutil, math
 gdal.UseExceptions()

@@ -13,7 +13,7 @@ and ifdesired, slope errors, using specific values for height and NDVI threshold
 -bs option: desired buffer size for powerlines, in meters. Defaults to 50.
 -st option: whether or not to save the temp rasters.
 -mp option: whether or not to use a manual powerline file for additional powerline masking.
--slp option: whether or not to use a manual slope errors shapefile for slope masking.
+-slp option: threshold for slope masking
 -grt option: threshold for greenred masking
 -bt option: threshold for building masking
 
@@ -61,7 +61,7 @@ def main():
     pixel_size = 4.77731426716
 
     if slope_threshold:
-        output_tiff = os.path.join(output_folder, f"{slope_threshold}slp_{survey}CHM_cleaned.tif")
+        output_tiff = os.path.join(output_folder, f"{slope_threshold}slp_{survey}_CHM_cleaned.tif")
     else:
         output_tiff = os.path.join(output_folder, f"{survey}_CHM_cleaned.tif")
 
