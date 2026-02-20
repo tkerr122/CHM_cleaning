@@ -43,6 +43,7 @@ def get_chm_loc(chm_path):
     gt = chm.GetGeoTransform()
     xsize = chm.RasterXSize
     ysize = chm.RasterYSize
+    projection = chm.GetSpatialRef().ExportToWkt()
     
     chm = None
     
@@ -110,11 +111,7 @@ def get_chm_loc(chm_path):
         return tile_names
     
     # Extract planet tile names
-    def get_planet_tiles(chm_path, planet_tiles_path):
-        # Get raster info
-        ds = gdal.Open(chm_path)
-        projection = ds.GetSpatialRef().ExportToWkt()
-        
+    def get_planet_tiles(chm_path, projection, planet_tiles_path):
         # Get raster footprint
         footprint = gdal.Footprint(None, chm_path, format="WKT", dstSRS=projection)
         
@@ -134,9 +131,9 @@ def get_chm_loc(chm_path):
     deg_tiles = get_deg_tile_name(lat_min, lat_max, lon_min, lon_max)
     deg_tiles = sorted(set(deg_tiles))
     
-    planet_tiles = get_planet_tiles(chm_path, planet_tiles_path="/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp")
+    planet_tiles = get_planet_tiles(chm_path, projection, planet_tiles_path="/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp")
     planet_tiles = sorted(set(planet_tiles))
-        
+    
     return wc_tiles, deg_tiles, planet_tiles
 
 def get_raster_info(raster_path):
@@ -403,6 +400,7 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     output.SetProjection(srs.ExportToWkt())
     
     # Mask greenred
+    print(f"Calculating greenred for {os.path.basename(input_image_path)}:")
     total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
     progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block", leave=False)
     

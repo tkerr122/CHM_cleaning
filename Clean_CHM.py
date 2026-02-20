@@ -66,7 +66,7 @@ def main():
         output_tiff = os.path.join(output_folder, f"{survey}_CHM_cleaned.tif")
 
     # Clean the CHM
-    clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, slope_threshold, greenred_threshold, building_threshold)
+    clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size, save_temp, man_pwl, greenred_threshold, building_threshold, slope_threshold)
 
 if __name__ == "__main__":
     main()
