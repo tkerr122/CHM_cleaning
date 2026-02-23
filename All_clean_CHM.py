@@ -4,7 +4,7 @@
 # Imports/env settings 
 import numpy as np
 import geopandas as gpd
-from osgeo import gdal, osr
+from osgeo import gdal, osr, ogr
 from tqdm import tqdm
 import os, shutil, math
 gdal.UseExceptions()
@@ -28,7 +28,7 @@ def get_chm_survey(chm_path):
     
     return survey_name, state 
 
-def get_chm_loc(chm_path):
+def get_chm_loc(chm_path, temp):
     """Takes given raster dataset and finds which WorldCover and Planet tiles it intersects with, returns a list of the tiles. 
     Planet_tiles_path is a hardcoded path.
 
@@ -43,7 +43,6 @@ def get_chm_loc(chm_path):
     gt = chm.GetGeoTransform()
     xsize = chm.RasterXSize
     ysize = chm.RasterYSize
-    projection = chm.GetSpatialRef().ExportToWkt()
     
     chm = None
     
@@ -84,6 +83,8 @@ def get_chm_loc(chm_path):
                 tile_name = f"ESA_WorldCover_10m_2021_v200_{lat_str}{lon_str}_Map.tif"
                 wc_names.append(tile_name)
         
+        wc_names = sorted(set(wc_names))
+        
         return wc_names
     
     # Extract degree tile names
@@ -107,32 +108,62 @@ def get_chm_loc(chm_path):
                 
                 tile_name = f"{lon_str}_{lat_str}.tif"
                 tile_names.append(tile_name)
+
+        tile_names = sorted(set(tile_names))
         
         return tile_names
     
     # Extract planet tile names
-    def get_planet_tiles(chm_path, projection, planet_tiles_path):
-        # Get raster footprint
-        footprint = gdal.Footprint(None, chm_path, format="WKT", dstSRS=projection)
+    def get_planet_tiles(chm_path, temp, planet_tiles_path):
+        # Set up tile list
+        chm_basename = os.path.splitext(os.path.basename(chm_path))[0]
+        planet_tile_list = os.path.join(temp, f"{chm_basename}_planet_tiles.txt")
         
-        # Intersect the footprint and planet tiles
-        translate_options = gdal.VectorTranslateOptions(format="Memory", clipSrc=footprint, selectFields=["location"])
-        tiles_mem = gdal.VectorTranslate("", planet_tiles_path, options=translate_options)
+        # Create tile list text file if it doesn't already exist
+        if os.path.isfile(planet_tile_list) == False:
+            # Set up variables
+            footprint_path = os.path.join(temp, f"{chm_basename}_footprint.geojson")
+            tiles_path = os.path.join(temp, f"{chm_basename}_tiles_split.geojson")
+            
+            # Get raster footprint
+            gdal.Footprint(footprint_path, chm_path, format="GeoJSON", dstSRS="EPSG:3857")
+            
+            # Intersect the footprint and planet tiles
+            translate_options = gdal.VectorTranslateOptions(format="GeoJSON", 
+                                                            clipSrc=footprint_path, 
+                                                            selectFields=["location"], 
+                                                            callback=gdal.TermProgress_nocb)
+            gdal.VectorTranslate(tiles_path, planet_tiles_path, options=translate_options)
+            
+            # Return the tiles
+            tiles_ds = ogr.Open(tiles_path)
+            tiles_layer = tiles_ds.GetLayer(0)
+            tiles = [f"L15-{tile['location']}.tif" for tile in tiles_layer]
+            
+            # Cleanup
+            os.remove(footprint_path)
+            os.remove(tiles_path)
+            
+            tiles = sorted(set(tiles))
+            
+            # Write to txt file
+            with open(planet_tile_list, "w") as f:
+                f.writelines(f"{tile}\n"for tile in tiles)
         
-        # Return the tiles
-        tiles_layer = tiles_mem.GetLayer(0)
-        tiles = [f"L15-{tile['location']}.tif" for tile in tiles_layer]
-        
+        else:
+            print(f"\"{os.path.basename(planet_tile_list)}\" exists, loading tiles...")
+            
+            # Load tiles from existing text file
+            with open(planet_tile_list, "r") as f:
+                tiles = sorted(set(line.strip() for line in f if line.strip()))
+            
         return tiles
 
     wc_tiles = get_wc_tile_name(lat_min, lat_max, lon_min, lon_max)
-    wc_tiles = sorted(set(wc_tiles))
     
     deg_tiles = get_deg_tile_name(lat_min, lat_max, lon_min, lon_max)
-    deg_tiles = sorted(set(deg_tiles))
     
-    planet_tiles = get_planet_tiles(chm_path, projection, planet_tiles_path="/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp")
-    planet_tiles = sorted(set(planet_tiles))
+    planet_tiles = get_planet_tiles(chm_path, temp, planet_tiles_path="/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp")
     
     return wc_tiles, deg_tiles, planet_tiles
 
@@ -490,8 +521,9 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         os.makedirs(temp, exist_ok=True)
     
     # Read in CHM and get info
+    print("Getting CHM info...")
     survey, state = get_chm_survey(input_chm)
-    wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm)
+    wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm, temp)
 
     print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
     
