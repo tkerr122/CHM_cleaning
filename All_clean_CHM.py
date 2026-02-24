@@ -249,8 +249,11 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
                                         xRes=pixel_size, 
                                         yRes=pixel_size, 
                                         cutlineDSName=cutline, 
-                                        cropToCutline=True, 
-                                        warpOptions=["COMPRESS=LZW", "BIGTIFF=YES"], 
+                                        cropToCutline=True,
+                                        multithread=True,
+                                        warpMemoryLimit=2000,
+                                        creationOptions=["COMPRESS=LZW", "BIGTIFF=YES", "TILED=YES", "NUM_THREADS=100"],
+                                        warpOptions=["NUM_THREADS=100"], 
                                         callback=gdal.TermProgress_nocb)
         gdal.Warp(dst_ds, raster_path, options=warp_options)
     else:
@@ -520,15 +523,19 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     if os.path.isdir(temp) == False:
         os.makedirs(temp, exist_ok=True)
     
-    # Read in CHM and get info
-    print("Getting CHM info...")
-    survey, state = get_chm_survey(input_chm)
-    wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm, temp)
-
-    print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
     
     # Generate paths to corresponding mask layers and preprocess
     try:
+        # Read in CHM and get info
+        print("Getting CHM info...")
+        if os.path.isfile(input_chm) == False:
+            raise InvalidSurvey(f"\nError: \"{os.path.basename(input_chm)}\" doesn't exist")
+        
+        survey, state = get_chm_survey(input_chm)
+        wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm, temp)
+
+        print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
+        
         # Create canopy mask
         cutline = extract_polygon(data_folders[0], survey, temp)
         
