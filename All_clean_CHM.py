@@ -121,30 +121,20 @@ def get_chm_loc(chm_path, temp):
         
         # Create tile list text file if it doesn't already exist
         if os.path.isfile(planet_tile_list) == False:
-            # Set up variables
-            footprint_path = os.path.join(temp, f"{chm_basename}_footprint.geojson")
-            tiles_path = os.path.join(temp, f"{chm_basename}_tiles_split.geojson")
-            
             # Get raster footprint
-            gdal.Footprint(footprint_path, chm_path, format="GeoJSON", dstSRS="EPSG:3857")
-            
-            # Intersect the footprint and planet tiles
-            translate_options = gdal.VectorTranslateOptions(format="GeoJSON", 
-                                                            clipSrc=footprint_path, 
-                                                            selectFields=["location"], 
-                                                            callback=gdal.TermProgress_nocb)
-            gdal.VectorTranslate(tiles_path, planet_tiles_path, options=translate_options)
+            footprint_ds = gdal.Footprint("", chm_path, format="Memory", dstSRS="EPSG:3857")
+            footprint_layer = footprint_ds.GetLayer(0)
+            footprint_feature = footprint_layer.GetNextFeature()
+            footprint_geom = footprint_feature.GetGeometryRef().Clone()
+                
+            # Open planet tiles and filter by footprint
+            planet_tiles_path = "/gpfs/glad1/Theo/Data/Planet_and_1_degree/Planet_tiles_and_degree.shp"
+            tiles_ds = ogr.Open(planet_tiles_path)
+            tiles_layer = tiles_ds.GetLayer(0)
+            tiles_layer.SetSpatialFilter(footprint_geom)
             
             # Return the tiles
-            tiles_ds = ogr.Open(tiles_path)
-            tiles_layer = tiles_ds.GetLayer(0)
-            tiles = [f"L15-{tile['location']}.tif" for tile in tiles_layer]
-            
-            # Cleanup
-            os.remove(footprint_path)
-            os.remove(tiles_path)
-            
-            tiles = sorted(set(tiles))
+            tiles = sorted(set(f.GetField("location") for f in tiles_layer))
             
             # Write to txt file
             with open(planet_tile_list, "w") as f:

@@ -6,10 +6,9 @@ import argparse
 gdal.UseExceptions()
 
 
-"""I have written this script to be a command-line utility for creating an NDVI raster cropped to the 
-extent of the CHM raster. This should be the first step when looking to clean a dataset of slope errors,
-since it allows the user to find what the appropriate height and NDVI thresholds should be for the 
-filtering.
+"""I have written this script to be a command-line utility for creating a greenred raster cropped to the 
+extent of the CHM raster. This should be the first step when looking to clean a dataset of building errors,
+since it allows the user to find what the appropriate greenred threshold should be for filtering.
 ================================================
 -s option: survey name
 
@@ -49,7 +48,7 @@ def main():
     print(f"CALCULATING greenred FOR {os.path.basename(input_chm)} ")
 
     # Preprocess CHM
-    chm_cropped_path, _, _, _, _, planet_cropped_path, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
+    _, _, _, _, _, planet_cropped_path, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
         
     # Calculate greenred
     greenred_path = calc_greenred_by_block(planet_cropped_path, temp, mask=False)
