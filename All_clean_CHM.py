@@ -134,7 +134,7 @@ def get_chm_loc(chm_path, temp):
             tiles_layer.SetSpatialFilter(footprint_geom)
             
             # Return the tiles
-            tiles = sorted(set(f.GetField("location") for f in tiles_layer))
+            tiles = sorted(set(f"L15-{f.GetField('location')}.tif" for f in tiles_layer))
             
             # Write to txt file
             with open(planet_tile_list, "w") as f:
@@ -552,7 +552,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             wc_path = os.path.join(data_folders[3], tile)
             
             if os.path.isfile(wc_path) == False:
-                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"\nError: WC tile \"{tile}\" doesn't exist.\n")
             
             worldcover_path.append(wc_path)
         
@@ -562,7 +562,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             p_path = os.path.join(data_folders[4], tile)
             
             if os.path.isfile(p_path) == False:
-                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"\nError: Planet tile \"{tile}\" doesn't exist.\n")
             
             planet_path.append(p_path)
             
@@ -572,7 +572,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             b_path = os.path.join(data_folders[5], tile)
 
             if os.path.isfile(b_path) == False:
-                raise InvalidSurvey(f"\nError: \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"\nError: Building tile \"{tile}\" doesn't exist.\n")
             
             building_path.append(b_path)
         
