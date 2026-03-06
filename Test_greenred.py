@@ -45,7 +45,7 @@ def main():
     temp = os.path.join(output_folder, "temp")
 
     print("\n")
-    print(f"CALCULATING greenred FOR {os.path.basename(input_chm)} ")
+    print(f"CALCULATING GREENRED FOR {os.path.basename(input_chm)} ")
 
     # Preprocess CHM
     _, _, _, _, _, planet_cropped_path, _ = preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size)
