@@ -464,7 +464,7 @@ def mask_buildings(chm_array, greenred_array, building_array, building_threshold
     
     return chm_cleaned
 
-def mask_slope(chm_array, slope_array, greenred_array, slope_threshold):
+def mask_slope(chm_array, slope_array, slope_threshold):
     """Takes in an array for the CHM, slope mask, and greenred mask, and masks the entire CHM of slope errors
 
     Args:
@@ -477,7 +477,6 @@ def mask_slope(chm_array, slope_array, greenred_array, slope_threshold):
         np.array: cleaned CHM array
     """
     # Use slope and greenred to mask slope errors
-    # condition_mask = (greenred_array == 1) & (slope_array >= slope_threshold)
     condition_mask = (slope_array >= slope_threshold)
     chm_cleaned = np.where(condition_mask, 0, chm_array)
     chm_cleaned[chm_array == 255] = 255
@@ -644,7 +643,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
                 
     # Create output blank raster
     chm_cropped, c_xsize, c_ysize, c_geotransform, c_srs = get_raster_info(chm_cropped_path)
-    output = gdal.GetDriverByName("GTiff").Create(output_tiff, c_xsize, c_ysize, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES"])
+    output = gdal.GetDriverByName("GTiff").Create(output_tiff, c_xsize, c_ysize, 1, gdal.GDT_Byte, options=["COMPRESS=LZW", "BIGTIFF=YES", "TILED=YES"])
     output_band = output.GetRasterBand(1)
     output_band.SetNoDataValue(255)
     output.SetGeoTransform(c_geotransform)
@@ -679,6 +678,8 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     building_8bit = building_cropped.GetRasterBand(1).ReadAsArray(0, 0, b_xsize, b_ysize).astype(np.uint8)
     chm_cleaned = mask_buildings(chm_cleaned, greenred_8bit, building_8bit, building_threshold)
     
+    greenred_cropped = None
+    greenred_8bit = None
     building_cropped = None
     building_8bit = None
     
@@ -687,13 +688,10 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         slope_cropped, s_xsize, s_ysize, _, _ = get_raster_info(slope_cropped_path)
         slope_8bit = slope_cropped.GetRasterBand(1).ReadAsArray(0, 0, s_xsize, s_ysize).astype(np.uint8)
                     
-        chm_cleaned = mask_slope(chm_cleaned, slope_8bit, greenred_8bit, slope_threshold)
+        chm_cleaned = mask_slope(chm_cleaned, slope_8bit, slope_threshold)
         
         slope_cropped = None
         slope_8bit = None
-        
-    greenred_cropped = None
-    greenred_8bit = None
         
     # Mask CHM by water
     wc_cropped, wc_xsize, wc_ysize, _, _ = get_raster_info(worldcover_cropped_path)
