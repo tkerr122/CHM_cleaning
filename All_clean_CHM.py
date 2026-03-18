@@ -1,13 +1,14 @@
 # Theo Kerr
-# For use on linux cluster "gdalenv" conda env
 
 # Imports/env settings 
+from osgeo import gdal, osr, ogr
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, MofNCompleteColumn
 import numpy as np
 import geopandas as gpd
-from osgeo import gdal, osr, ogr
-from tqdm import tqdm
 import os, shutil, math
 gdal.UseExceptions()
+console = Console()
 
 # Define custom errors
 class InvalidSurvey(Exception):
@@ -141,7 +142,7 @@ def get_chm_loc(chm_path, temp):
                 f.writelines(f"{tile}\n"for tile in tiles)
         
         else:
-            print(f"\"{os.path.basename(planet_tile_list)}\" exists, loading tiles...")
+            console.print(f"\u2192 '{os.path.basename(planet_tile_list)}' exists, loaded the tiles", style="dim yellow", highlight=False)
             
             # Load tiles from existing text file
             with open(planet_tile_list, "r") as f:
@@ -166,13 +167,18 @@ def get_raster_info(raster_path):
     Returns:
         tuple: returns a GDAL raster, number of columns, number of rows, the geotransform, and the projection.
     """
-    ds = gdal.Open(raster_path)
-    xsize = ds.RasterXSize
-    ysize = ds.RasterYSize
-    transform = ds.GetGeoTransform()
-    projection = ds.GetSpatialRef()
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        progress.add_task(f"Getting raster info for {os.path.basename(raster_path)}...", total=None)
+        ds = gdal.Open(raster_path)
+        xsize = ds.RasterXSize
+        ysize = ds.RasterYSize
+        transform = ds.GetGeoTransform()
+        projection = ds.GetSpatialRef()
     
-    print(f"Read in {os.path.basename(raster_path)}...")
+    console.print(f"\u2713 Read in {os.path.basename(raster_path)}", style="dim green")
     
     return ds, xsize, ysize, transform, projection
 
@@ -191,19 +197,24 @@ def extract_polygon(input_shp, survey, output_folder):
         str: path to the new canopy GeoJSON.
     """
     # Load in canopy shapefile and mask to survey
-    shp = gpd.read_file(input_shp)
-    polygon = shp[shp["Survey"] == survey]
     polygon_basename = os.path.splitext(os.path.basename(input_shp))[0]
     path = os.path.join(output_folder, f"{polygon_basename}_{survey}.geojson")
-    if polygon.empty:
-        raise InvalidSurvey(f"\nThe survey name \"{survey}\" is incorrect or doesn't exist\n")
     
-    # Write canopy geojson to file, if it hasn't already been done
     if os.path.isfile(path) == False:
-        polygon.to_file(path, driver="GeoJSON")
-        print(f"Created {os.path.basename(path)}...")
+        with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+            progress.add_task(f"Extracting polygon for survey {survey}...", total=None)
+            shp = gpd.read_file(input_shp)
+            polygon = shp[shp["Survey"] == survey]
+            if polygon.empty:
+                raise InvalidSurvey(f"\nThe survey name \"{survey}\" is incorrect or doesn't exist\n")
+            polygon.to_file(path, driver="GeoJSON")
+        
+        console.print(f"\u2713 Created {os.path.basename(path)}", style="dim green")
     else:
-        print(f"\"{os.path.basename(path)}\" exists, saving path...")
+        console.print(f"\u2192 '{os.path.basename(path)}' exists, path saved", style="dim yellow", highlight=False)
     
     return path
 
@@ -233,21 +244,25 @@ def crop_raster(raster_path, output_folder, crs, pixel_size, cutline):
     
     # Crop the raster, if it hasn't already been done
     if os.path.isfile(dst_ds) == False:
-        print(f"Cropping {os.path.basename(dst_ds)}:")
-        warp_options = gdal.WarpOptions(format="GTiff", 
-                                        dstSRS=crs, 
-                                        xRes=pixel_size, 
-                                        yRes=pixel_size, 
-                                        cutlineDSName=cutline, 
-                                        cropToCutline=True,
-                                        multithread=True,
-                                        warpMemoryLimit=2000,
-                                        creationOptions=["COMPRESS=LZW", "BIGTIFF=YES", "TILED=YES", "NUM_THREADS=100"],
-                                        warpOptions=["NUM_THREADS=100"], 
-                                        callback=gdal.TermProgress_nocb)
-        gdal.Warp(dst_ds, raster_path, options=warp_options)
+        with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+            progress.add_task(f"Cropping {os.path.basename(dst_ds)}...", total=None)
+            warp_options = gdal.WarpOptions(format="GTiff", 
+                                            dstSRS=crs, 
+                                            xRes=pixel_size, 
+                                            yRes=pixel_size, 
+                                            cutlineDSName=cutline, 
+                                            cropToCutline=True,
+                                            multithread=True,
+                                            warpMemoryLimit=2000,
+                                            creationOptions=["COMPRESS=LZW", "BIGTIFF=YES", "TILED=YES", "NUM_THREADS=100"],
+                                            warpOptions=["NUM_THREADS=100"])
+            gdal.Warp(dst_ds, raster_path, options=warp_options)
+        console.print(f"\u2713 Cropped {os.path.basename(dst_ds)}", style="dim green")
     else:
-        print(f"\"{os.path.basename(dst_ds)}\" exists, saving path...")
+        console.print(f"\u2192 '{os.path.basename(dst_ds)}' exists, path saved", style="dim yellow", highlight=False)
         
     return dst_ds
 
@@ -263,16 +278,20 @@ def rasterize(input_file, output_tiff, pixel_size, burn_value=1):
     # Check if file exists
     if os.path.isfile(output_tiff) == False:
         # Rasterize dataset
-        print(f"Rasterizing {os.path.basename(input_file)}:")
-        rasterize_options = gdal.RasterizeOptions(format="GTiff",
-                                                  burnValues=burn_value,
-                                                  xRes=pixel_size,
-                                                  yRes=pixel_size,
-                                                  callback=gdal.TermProgress_nocb)
-        gdal.Rasterize(output_tiff, input_file, options=rasterize_options)
+        with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+            progress.add_task(f"Rasterizing {os.path.basename(input_file)}...", total=None)
+            rasterize_options = gdal.RasterizeOptions(format="GTiff",
+                                                    burnValues=burn_value,
+                                                    xRes=pixel_size,
+                                                    yRes=pixel_size)
+            gdal.Rasterize(output_tiff, input_file, options=rasterize_options)
         
+        console.print(f"\u2713 Rasterized {os.path.basename(input_file)}", style="dim green")
     else:
-        print(f"\"{os.path.basename(output_tiff)}\" exists, not rasterizing")
+        console.print(f"\u2192 '{os.path.basename(output_tiff)}' exists, not rasterizing", style="dim yellow", highlight=False)
     
 def buffer_powerlines(input_file, output_file, crs, pixel_size, buffer_size, cutline, burn_value=1):
     """Reads in given vector dataset and buffers it to given specifications.
@@ -298,11 +317,10 @@ def buffer_powerlines(input_file, output_file, crs, pixel_size, buffer_size, cut
         powerline_cropped = gpd.clip(powerline, cutline_polygon)
 
         if powerline_cropped.empty:
-            print(f"The powerlines for {os.path.basename(input_file)} do not exist within the bounds of the study area, creating blank raster...")
-            
             # Create blank powerlines raster over survey extent
             rasterize(cutline, output_file, pixel_size, burn_value=0)
-        
+            console.print(f"\u2192 No powerlines for {os.path.basename(input_file)} exist within the study area, created blank raster", style="dim yellow")            
+                
         else:
             # Buffer to specified radius
             powerline_buffer = powerline_cropped.buffer(buffer_size, cap_style="square")
@@ -316,7 +334,7 @@ def buffer_powerlines(input_file, output_file, crs, pixel_size, buffer_size, cut
             os.remove(powerline_geojson)
             
     else:
-        print(f"\"{os.path.basename(output_file)}\" exists, not buffering")
+        console.print(f"\u2192 '{os.path.basename(output_file)}' exists, not buffering", style="dim yellow", highlight=False)
 
 def mask_powerlines(chm_array, powerlines_array):
     """Takes in an array for the CHM and the powerlines (must be same dimensions) and sets CHM values to 0 where there are powerlines.
@@ -328,10 +346,16 @@ def mask_powerlines(chm_array, powerlines_array):
     Returns:
         np.array: cleaned CHM array.
     """
-    condition_mask = (powerlines_array == 1)
-    chm_cleaned = np.where(condition_mask, 0, chm_array)
-    chm_cleaned[chm_array == 255] = 255
-    print("Cleaned CHM Powerlines...")
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        progress.add_task("Cleaning CHM powerlines...", total=None)
+        condition_mask = (powerlines_array == 1)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
+    
+    console.print("\u2713 Cleaned CHM Powerlines", style="dim green")
     
     return chm_cleaned
 
@@ -345,9 +369,15 @@ def mask_water(chm_array, water_array):
     Returns:
         np.array: cleaned CHM array.
     """
-    condition_mask = (water_array == 80)
-    chm_cleaned = np.where(condition_mask, 0, chm_array)
-    print("Cleaned CHM Water...")
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        progress.add_task("Cleaning CHM water...", total=None)
+        condition_mask = (water_array == 80)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+    
+    console.print("\u2713 Cleaned CHM water", style="dim green")
     
     return chm_cleaned
 
@@ -424,18 +454,21 @@ def calc_greenred_by_block(input_image_path, output_folder, threshold_value=None
     output.SetProjection(srs.ExportToWkt())
     
     # Mask greenred
-    print(f"Calculating greenred for {os.path.basename(input_image_path)}:")
     total_blocks = (xsize // x_block_size + 1) * (ysize // y_block_size + 1)
-    progress_bar = tqdm(total=total_blocks, desc="Progress", unit="block", leave=False)
-    
-    for y in range(0, ysize + 1, y_block_size):
-        rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
-        for x in range(0, xsize + 1, x_block_size):
-            cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
-            calc_greenred(green, red, output_band, x, y, cols, rows, threshold_value, mask)
-            progress_bar.update(1)
-     
-    progress_bar.close()
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              MofNCompleteColumn(),
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        task = progress.add_task("Calculating greenred...", total=total_blocks)
+        for y in range(0, ysize + 1, y_block_size):
+            rows = min(y_block_size, ysize - y)  # Handles edge case for remaining rows
+            for x in range(0, xsize + 1, x_block_size):
+                cols = min(x_block_size, xsize - x)  # Handles edge case for remaining cols
+                calc_greenred(green, red, output_band, x, y, cols, rows, threshold_value, mask)
+                progress.update(task, advance=1)
+
+    console.print("\u2713 Calculated greenred", style="dim green")
     output_band = None
     output = None
     planet_image = None
@@ -455,12 +488,16 @@ def mask_buildings(chm_array, greenred_array, building_array, building_threshold
     Returns:
         np.array: cleaned CHM array.
     """
-    # Use building mask with greenred for masking
-    condition_mask = (greenred_array == 1) & (building_array >= building_threshold)
-    chm_cleaned = np.where(condition_mask, 0, chm_array)
-    chm_cleaned[chm_array == 255] = 255
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        progress.add_task("Cleaning CHM building errors...", total=None)
+        condition_mask = (greenred_array == 1) & (building_array >= building_threshold)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
             
-    print("Cleaned CHM building errors...")
+    console.print("\u2713 Cleaned CHM building errors", style="dim green")
     
     return chm_cleaned
 
@@ -476,12 +513,16 @@ def mask_slope(chm_array, slope_array, slope_threshold):
     Returns:
         np.array: cleaned CHM array
     """
-    # Use slope and greenred to mask slope errors
-    condition_mask = (slope_array >= slope_threshold)
-    chm_cleaned = np.where(condition_mask, 0, chm_array)
-    chm_cleaned[chm_array == 255] = 255
+    with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+        progress.add_task("Cleaning CHM slope errors...", total=None)
+        condition_mask = (slope_array >= slope_threshold)
+        chm_cleaned = np.where(condition_mask, 0, chm_array)
+        chm_cleaned[chm_array == 255] = 255
     
-    print("Cleaned slope errors...")
+    console.print("\u2713 Cleaned slope errors", style="dim green")
     
     return chm_cleaned
 
@@ -512,26 +553,27 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
     if os.path.isdir(temp) == False:
         os.makedirs(temp, exist_ok=True)
     
-    
     # Generate paths to corresponding mask layers and preprocess
     try:
-        # Read in CHM and get info
-        print("Getting CHM info...")
-        if os.path.isfile(input_chm) == False:
-            raise InvalidSurvey(f"\nError: \"{os.path.basename(input_chm)}\" doesn't exist")
-        
-        survey, state = get_chm_survey(input_chm)
-        wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm, temp)
+        # Read in CHM and get info, create canopy mask
+        with Progress(SpinnerColumn(),
+              "[progress.description]{task.description}",
+              TimeElapsedColumn(),
+              transient=True) as progress:
+            progress.add_task("Getting CHM info...", total=None)
+            if os.path.isfile(input_chm) == False:
+                raise InvalidSurvey(f"Error: \"{os.path.basename(input_chm)}\" doesn't exist")
+            survey, state = get_chm_survey(input_chm)
+            wc_tiles, building_tiles, planet_tiles = get_chm_loc(input_chm, temp)
 
-        print(f"Got CHM info: \tsurvey: {survey}\tstate: {state}")
-        
-        # Create canopy mask
         cutline = extract_polygon(data_folders[0], survey, temp)
+
+        console.print(f"Survey: [bold]{survey}[/bold]  State: [bold]{state}[/bold]", style="dim green")
         
         # Powerlines
         powerlines_path = os.path.join(data_folders[1], f"{state}_powerlines.geojson")
         if os.path.isfile(powerlines_path) == False:
-            raise InvalidSurvey(f"\nError: \"{state}_powerlines.geojson\" doesn't exist.\n")
+            raise InvalidSurvey(f"Error: \"{state}_powerlines.geojson\" doesn't exist.\n")
         
         output_powerlines = os.path.join(temp, f"{state}_powerlines_buffer.tif")
         buffer_powerlines(powerlines_path, output_powerlines, crs, pixel_size, buffer_size, cutline)
@@ -540,7 +582,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         if man_pwl == True:
             man_pwl_path = os.path.join(data_folders[2], f"{state}_man_pwl.geojson")
             if os.path.isfile(man_pwl_path) == False:
-                raise InvalidSurvey(f"\nError: Manual powerline file \"{state}_man_pwl.geojson\" doesn't exist.\n")
+                raise InvalidSurvey(f"Error: Manual powerline file \"{state}_man_pwl.geojson\" doesn't exist.\n")
             
             output_man_pwl = os.path.join(temp, f"{state}_man_pwl_buffer.tif")
             buffer_powerlines(man_pwl_path, output_man_pwl, crs, pixel_size, buffer_size, cutline)
@@ -551,7 +593,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             wc_path = os.path.join(data_folders[3], tile)
             
             if os.path.isfile(wc_path) == False:
-                raise InvalidSurvey(f"\nError: WC tile \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"Error: WC tile \"{tile}\" doesn't exist.\n")
             
             worldcover_path.append(wc_path)
         
@@ -561,7 +603,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             p_path = os.path.join(data_folders[4], tile)
             
             if os.path.isfile(p_path) == False:
-                raise InvalidSurvey(f"\nError: Planet tile \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"Error: Planet tile \"{tile}\" doesn't exist.\n")
             
             planet_path.append(p_path)
             
@@ -571,7 +613,7 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
             b_path = os.path.join(data_folders[5], tile)
 
             if os.path.isfile(b_path) == False:
-                raise InvalidSurvey(f"\nError: Building tile \"{tile}\" doesn't exist.\n")
+                raise InvalidSurvey(f"Error: Building tile \"{tile}\" doesn't exist.\n")
             
             building_path.append(b_path)
         
@@ -579,10 +621,10 @@ def preprocess_data_layers(input_chm, temp, data_folders, crs, pixel_size, buffe
         if slope_threshold:
             slope_path = os.path.join(data_folders[6], f"{survey}_slope.tif")
             if os.path.isfile(slope_path) == False: 
-                raise InvalidSurvey(f"\nError: Slope raster file \"{survey}_slope.tif\" doesn't exist.\n")
+                raise InvalidSurvey(f"Error: Slope raster file \"{survey}_slope.tif\" doesn't exist.\n")
             
     except InvalidSurvey as e:
-        print(e)
+        console.print(f"\u2717 {e}", style="bold red")
         shutil.rmtree(temp)
         exit()    
         
@@ -631,9 +673,7 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
         slope_threshold(int, optional): desired slope threshold for masking, in degrees. If not None, use slope raster for masking. Defaults to None 
     """
     # Start message
-    columns = shutil.get_terminal_size().columns
-    print("=".center(columns, "="))
-    print(f"PROCESSING CHM {os.path.basename(input_chm)}\n")
+    console.print(f"\nPROCESSING CHM {os.path.basename(input_chm)}", style="bold cyan")
     
     # Set up temp directory for intermediate files
     temp = os.path.join(os.path.dirname(output_tiff), "temp")
@@ -648,7 +688,6 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     output_band.SetNoDataValue(255)
     output.SetGeoTransform(c_geotransform)
     output.SetProjection(c_srs.ExportToWkt())
-    print("Created blank raster...")
     
     # Mask CHM by powerlines
     chm_8bit = chm_cropped.GetRasterBand(1).ReadAsArray(0, 0, c_xsize, c_ysize).astype(np.uint8)
@@ -711,6 +750,4 @@ def clean_chm(input_chm, output_tiff, data_folders, crs, pixel_size, buffer_size
     if save_temp == False:
         shutil.rmtree(temp)
  
-    print()
-    print(f"Cleaned CHM written to {output_tiff}")
-    print("=".center(columns, "="))
+    console.print(f"\n\u2713 Cleaned CHM written to {output_tiff}\n", style="bold green")
