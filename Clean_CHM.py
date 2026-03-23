@@ -6,16 +6,18 @@ from All_clean_CHM import *
 import argparse
 gdal.UseExceptions()
 
-"""I have written this script to be a command-line utility for cleaning a CHM of powerlines, water, 
-and ifdesired, slope errors, using specific values for height and NDVI thresholds. 
-====================================================================================================
+"""
+I have written this script to be a command-line utility for cleaning a CHM of 
+powerlines, water, and ifdesired, slope errors, using specific values for 
+height and NDVI thresholds. 
+===============================================================================
 -s option: survey name.
 -bs option: desired buffer size for powerlines, in meters. Defaults to 50.
--st option: whether or not to save the temp rasters.
--mp option: whether or not to use a manual powerline file for additional powerline masking.
--slp option: threshold for slope masking
--grt option: threshold for greenred masking
--bt option: threshold for building masking
+-st option: whether to save the temp rasters.
+-mp option: whether to use a manual powerline file when masking powerlines.
+-slp option: threshold for slope masking, if desired.
+-grt option: threshold for greenred masking.
+-bt option: threshold for building masking.
 
 Assumes the following input variables are hardcoded:
  - input_chm
